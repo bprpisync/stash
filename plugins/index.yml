@@ -1,0 +1,8 @@
+- id: stash-randomBackgrounds
+  name: stash-randomBackgrounds
+  metadata:
+    description: Changes the stash background to a random image of your choosing
+  version: 1.0.1
+  date: "2026-07-19 16:20:00"
+  path: stash-randomBackgrounds/stash-randomBackgrounds-1-0-1.zip
+  sha256: 4f2dbe14f2d71b1462546349ae3fffb4317e7f89651d269b3b3d99daff41a247
