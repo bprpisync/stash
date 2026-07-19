@@ -1,0 +1,9 @@
+name: "Random Backgrounds"
+description: "Changes the stash background to a random image of your choosing with the 'background' tag"
+version: "1.0.1"
+
+ui:
+  javascript:
+    - stash-randomBackgrounds.js
+  assets:
+    /: .
