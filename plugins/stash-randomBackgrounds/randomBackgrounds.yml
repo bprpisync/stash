@@ -4,6 +4,6 @@ version: "1.0.1"
 
 ui:
   javascript:
-    - randomBackgrounds.js
+    - stash-randomBackgrounds.js
   assets:
     /: .
