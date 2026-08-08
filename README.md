@@ -89,7 +89,7 @@ Open a PornPics scene to select individual images, or use **Add all photos** dir
 
 Your current selection is available through the **Selected** button, where photos are grouped by scene.
 
-![PornPics Importer selection drawer](docs/images/ppics/ppics_import1.png)
+![PornPics Importer selection drawer](docs/images/ppics/ppics_import.png)
 
 ## Review before import
 
