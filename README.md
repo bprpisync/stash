@@ -2,9 +2,6 @@
 
 A collection of my plugins for [Stash](https://stashapp.cc/) that add new browsing, importing, and customization features to your Stash instance.
 
-> **Install once, update from Stash.**  
-> Add this repository's `index.yml` as a plugin source and Stash can install and update the plugins listed below.
-
 ---
 
 ## Installation
