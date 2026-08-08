@@ -1,0 +1,16 @@
+# Build output
+_site/
+
+# Python
+**/__pycache__/
+**/*.pyc
+
+# PornPics Importer runtime data
+plugins/**/assets/cache/
+plugins/**/state/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
