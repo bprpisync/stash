@@ -1,0 +1,392 @@
+:root {
+  --stash-app-drawer-bg: var(--bs-body-bg, #202124);
+  --stash-app-drawer-surface: var(--bs-secondary-bg, #2b2d31);
+  --stash-app-drawer-text: var(--bs-body-color, #f3f3f3);
+  --stash-app-drawer-surface-2: color-mix(in srgb, var(--stash-app-drawer-text) 6%, transparent);
+  --stash-app-drawer-border: color-mix(in srgb, var(--stash-app-drawer-text) 14%, transparent);
+  --stash-app-drawer-muted: color-mix(in srgb, var(--stash-app-drawer-text) 64%, transparent);
+  --stash-app-drawer-accent: var(--bs-primary, #0d6efd);
+}
+
+html.stash-app-drawer-open,
+html.stash-app-drawer-open body {
+  overflow: hidden;
+}
+
+#stash-app-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 10900;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+#stash-app-drawer-root.is-open {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.stash-app-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  opacity: 0;
+  transition: opacity 160ms ease;
+  backdrop-filter: blur(2px);
+}
+
+#stash-app-drawer-root.is-open .stash-app-drawer-backdrop {
+  opacity: 1;
+}
+
+.stash-app-drawer-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(780px, 92vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: var(--stash-app-drawer-text);
+  background: var(--stash-app-drawer-bg);
+  border-left: 1px solid var(--stash-app-drawer-border);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.35);
+  transform: translateX(102%);
+  transition: transform 190ms ease;
+}
+
+#stash-app-drawer-root.is-open .stash-app-drawer-drawer {
+  transform: translateX(0);
+}
+
+.stash-app-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.2rem 1.35rem;
+  border-bottom: 1px solid var(--stash-app-drawer-border);
+}
+
+.stash-app-drawer-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.stash-app-drawer-heading h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.stash-app-drawer-heading p {
+  margin: 0.2rem 0 0;
+  color: var(--stash-app-drawer-muted);
+  font-size: 0.9rem;
+}
+
+.stash-app-drawer-heading-icon,
+.stash-app-drawer-empty-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.8rem;
+  background: var(--stash-app-drawer-surface-2);
+  border: 1px solid var(--stash-app-drawer-border);
+}
+
+.stash-app-drawer-heading-icon svg,
+.stash-app-drawer-empty-icon svg,
+.stash-app-drawer-search-icon svg,
+.stash-app-drawer-nav-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stash-app-drawer-heading-icon svg rect,
+.stash-app-drawer-nav-icon svg rect {
+  fill: currentColor;
+  stroke: none;
+}
+
+.stash-app-drawer-close {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--stash-app-drawer-muted);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stash-app-drawer-close:hover {
+  color: var(--stash-app-drawer-text);
+  background: var(--stash-app-drawer-surface-2);
+}
+
+.stash-app-drawer-toolbar {
+  padding: 1rem 1.35rem 0.8rem;
+  border-bottom: 1px solid var(--stash-app-drawer-border);
+}
+
+.stash-app-drawer-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0 0.85rem;
+  height: 2.85rem;
+  border: 1px solid var(--stash-app-drawer-border);
+  border-radius: 0.75rem;
+  background: var(--stash-app-drawer-surface-2);
+}
+
+.stash-app-drawer-search-icon {
+  display: grid;
+  place-items: center;
+  color: var(--stash-app-drawer-muted);
+}
+
+.stash-app-drawer-search-wrap input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--stash-app-drawer-text);
+  font: inherit;
+}
+
+.stash-app-drawer-search-wrap input::placeholder {
+  color: var(--stash-app-drawer-muted);
+}
+
+.stash-app-drawer-categories {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-top: 0.8rem;
+  scrollbar-width: thin;
+}
+
+.stash-app-drawer-category {
+  flex: 0 0 auto;
+  border: 1px solid var(--stash-app-drawer-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--stash-app-drawer-muted);
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.stash-app-drawer-category:hover,
+.stash-app-drawer-category.is-active {
+  color: var(--stash-app-drawer-text);
+  border-color: color-mix(in srgb, var(--stash-app-drawer-accent) 70%, white 10%);
+  background: color-mix(in srgb, var(--stash-app-drawer-accent) 18%, transparent);
+}
+
+.stash-app-drawer-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.15rem 1.35rem 1.5rem;
+}
+
+
+.stash-app-drawer-category-section + .stash-app-drawer-category-section {
+  margin-top: 1.4rem;
+}
+
+.stash-app-drawer-category-heading {
+  margin: 0 0 0.65rem;
+  color: var(--stash-app-drawer-text);
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.stash-app-drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.stash-app-drawer-card {
+  display: flex;
+  align-items: flex-start;
+  min-height: 104px;
+  padding: 1rem;
+  text-align: left;
+  color: inherit;
+  background: var(--stash-app-drawer-surface-2);
+  border: 1px solid var(--stash-app-drawer-border);
+  border-radius: 0.9rem;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.stash-app-drawer-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--stash-app-drawer-accent) 55%, var(--stash-app-drawer-border));
+  background: color-mix(in srgb, var(--stash-app-drawer-accent) 8%, var(--stash-app-drawer-surface-2));
+}
+
+.stash-app-drawer-card:focus-visible,
+.stash-app-drawer-category:focus-visible,
+.stash-app-drawer-close:focus-visible,
+.stash-app-drawer-nav-entry:focus-visible {
+  outline: 2px solid var(--stash-app-drawer-accent);
+  outline-offset: 2px;
+}
+
+
+.stash-app-drawer-card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+}
+
+.stash-app-drawer-card-title {
+  font-weight: 650;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.stash-app-drawer-card-description {
+  margin-top: 0.28rem;
+  color: var(--stash-app-drawer-muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.stash-app-drawer-card-author {
+  margin-top: auto;
+  padding-top: 0.55rem;
+  color: var(--stash-app-drawer-muted);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  opacity: 0.82;
+}
+
+
+.stash-app-drawer-empty {
+  min-height: 48vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--stash-app-drawer-muted);
+  padding: 2rem;
+}
+
+.stash-app-drawer-empty h3 {
+  margin: 0.9rem 0 0.35rem;
+  color: var(--stash-app-drawer-text);
+}
+
+.stash-app-drawer-empty p {
+  margin: 0;
+  max-width: 480px;
+}
+
+.stash-app-drawer-empty code {
+  color: inherit;
+}
+
+.stash-app-drawer-nav-entry {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0 !important;
+  background: transparent !important;
+  cursor: pointer;
+  font: inherit;
+}
+
+.stash-app-drawer-nav-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+@media (max-width: 700px) {
+  .stash-app-drawer-drawer {
+    width: 100%;
+    border-left: 0;
+  }
+
+  .stash-app-drawer-header,
+  .stash-app-drawer-toolbar,
+  .stash-app-drawer-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .stash-app-drawer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stash-app-drawer-heading p {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stash-app-drawer-backdrop,
+  .stash-app-drawer-drawer,
+  .stash-app-drawer-card {
+    transition: none !important;
+  }
+}
+
+/* v1.0 accessibility and long-content hardening */
+.stash-app-drawer-drawer,
+.stash-app-drawer-card,
+.stash-app-drawer-card-body,
+.stash-app-drawer-heading,
+.stash-app-drawer-heading > div {
+  min-width: 0;
+}
+
+.stash-app-drawer-search-wrap:focus-within {
+  border-color: var(--stash-app-drawer-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--stash-app-drawer-accent) 22%, transparent);
+}
+
+.stash-app-drawer-card-title,
+.stash-app-drawer-card-description,
+.stash-app-drawer-card-author,
+.stash-app-drawer-heading h2,
+.stash-app-drawer-heading p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.stash-app-drawer-card-description {
+  -webkit-line-clamp: 4;
+}
+
+.stash-app-drawer-card-author {
+  max-width: 100%;
+}
+
+.stash-app-drawer-drawer:focus {
+  outline: none;
+}

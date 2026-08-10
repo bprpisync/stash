@@ -1,0 +1,11 @@
+name: Stash App Drawer
+description: A shared app launcher for Stash plugins. Adds one Apps entry to the navbar and provides a registry that other plugins can use.
+version: 1.0.0
+ui:
+  css:
+    - ui/style.css
+  javascript:
+    - ui/script.js
+exec:
+  - logger.js
+interface: js
