@@ -8806,7 +8806,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                         "a", {
                             key: "stash-ppics-legacy-navbar-entry",
                             className: "nav-link",
-                            href: "/ppics",
+                            href: "/plugin/ppics",
                             title: "PornPics Importer",
                             "aria-label": "PornPics Importer"
                         },
