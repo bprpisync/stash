@@ -1,4 +1,4 @@
-const pp_VERSION = "v1.0.0";
+const pp_VERSION = "v1.0.1";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 

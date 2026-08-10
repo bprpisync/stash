@@ -1,41 +1,464 @@
 from difflib import SequenceMatcher
+import json
 import re
-
-from stashapi.stashapp import StashInterface
+import socket
+from urllib.error import HTTPError
+from urllib.error import URLError
+from urllib.request import Request
+from urllib.request import urlopen
 
 
 PLUGIN_ID = "stash-ppics"
 
 
+def _connection_value(
+    connection,
+    key,
+    default=None
+):
+    wanted = str(
+        key or ""
+    ).casefold()
+
+    for current_key, value in (
+        connection or {}
+    ).items():
+        if str(
+            current_key or ""
+        ).casefold() == wanted:
+            return value
+
+    return default
+
+
 class Stash:
-    def __init__(self, server_connection):
+    def __init__(
+        self,
+        server_connection
+    ):
         if not server_connection:
-            raise ValueError("Missing Stash server_connection")
+            raise ValueError(
+                "Missing Stash server_connection"
+            )
 
-        self.stash = StashInterface(server_connection)
+        self.server_connection = dict(
+            server_connection
+        )
 
-    def query(self, query, variables=None):
-        return self.stash.call_GQL(query, variables or {})
+        scheme = str(
+            _connection_value(
+                self.server_connection,
+                "Scheme",
+                "http"
+            )
+            or "http"
+        ).strip().lower()
+
+        host = str(
+            _connection_value(
+                self.server_connection,
+                "Host",
+                ""
+            )
+            or _connection_value(
+                self.server_connection,
+                "Domain",
+                "localhost"
+            )
+            or "localhost"
+        ).strip()
+
+        if host == "0.0.0.0":
+            host = "127.0.0.1"
+
+        port = _connection_value(
+            self.server_connection,
+            "Port",
+            9999
+        )
+
+        try:
+            port = int(
+                port
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            port = 9999
+
+        if scheme not in (
+            "http",
+            "https"
+        ):
+            raise ValueError(
+                "Unsupported Stash connection scheme: "
+                + scheme
+            )
+
+        url_host = host
+
+        if (
+            ":" in host
+            and not host.startswith("[")
+            and not host.endswith("]")
+        ):
+            url_host = (
+                "["
+                + host
+                + "]"
+            )
+
+        self.graphql_url = (
+            scheme
+            + "://"
+            + url_host
+            + ":"
+            + str(port)
+            + "/graphql"
+        )
+
+        self.headers = {
+            "Accept":
+                "application/json",
+            "Content-Type":
+                "application/json",
+            "User-Agent":
+                "PornPics-Importer/1.0.1"
+        }
+
+        api_key = _connection_value(
+            self.server_connection,
+            "ApiKey"
+        )
+
+        if api_key:
+            self.headers["ApiKey"] = str(
+                api_key
+            )
+
+        session_cookie = _connection_value(
+            self.server_connection,
+            "SessionCookie"
+        )
+
+        session_value = ""
+
+        if isinstance(
+            session_cookie,
+            dict
+        ):
+            session_value = str(
+                _connection_value(
+                    session_cookie,
+                    "Value",
+                    ""
+                )
+                or ""
+            ).strip()
+
+        elif session_cookie:
+            session_value = str(
+                session_cookie
+            ).strip()
+
+        if (
+            session_value
+            and not api_key
+        ):
+            self.headers[
+                "Cookie"
+            ] = (
+                "session="
+                + session_value
+            )
+
+    def _friendly_http_error(
+        self,
+        error,
+        body=""
+    ):
+        code = getattr(
+            error,
+            "code",
+            None
+        )
+
+        reason = str(
+            getattr(
+                error,
+                "reason",
+                ""
+            )
+            or ""
+        ).strip()
+
+        if code in (
+            401,
+            403
+        ):
+            return RuntimeError(
+                "Stash rejected the plugin GraphQL request "
+                + "with HTTP "
+                + str(code)
+                + ". Check Stash authentication or API access."
+            )
+
+        message = (
+            "Stash GraphQL request failed"
+        )
+
+        if code:
+            message += (
+                " with HTTP "
+                + str(code)
+            )
+
+        if reason:
+            message += (
+                " "
+                + reason
+            )
+
+        body = str(
+            body or ""
+        ).strip()
+
+        if body:
+            message += (
+                ": "
+                + body[:500]
+            )
+
+        return RuntimeError(
+            message
+        )
+
+    def query(
+        self,
+        query,
+        variables=None
+    ):
+        payload = json.dumps(
+            {
+                "query":
+                    str(query or ""),
+                "variables":
+                    variables or {}
+            },
+            ensure_ascii=False
+        ).encode(
+            "utf-8"
+        )
+
+        request = Request(
+            self.graphql_url,
+            data=payload,
+            headers=self.headers,
+            method="POST"
+        )
+
+        try:
+            with urlopen(
+                request,
+                timeout=120
+            ) as response:
+                raw = response.read()
+
+        except HTTPError as error:
+            body = ""
+
+            try:
+                body = error.read().decode(
+                    "utf-8",
+                    errors="replace"
+                )
+            except Exception:
+                body = ""
+
+            raise self._friendly_http_error(
+                error,
+                body
+            ) from error
+
+        except (
+            URLError,
+            socket.timeout,
+            TimeoutError
+        ) as error:
+            reason = str(
+                getattr(
+                    error,
+                    "reason",
+                    error
+                )
+            ).strip()
+
+            message = (
+                "Could not reach the Stash GraphQL endpoint at "
+                + self.graphql_url
+            )
+
+            if reason:
+                message += (
+                    ": "
+                    + reason
+                )
+
+            raise RuntimeError(
+                message
+            ) from error
+
+        try:
+            result = json.loads(
+                raw.decode(
+                    "utf-8"
+                )
+            )
+
+        except Exception as error:
+            raise RuntimeError(
+                "Stash returned an invalid GraphQL response."
+            ) from error
+
+        if not isinstance(
+            result,
+            dict
+        ):
+            raise RuntimeError(
+                "Stash returned an invalid GraphQL response."
+            )
+
+        errors = result.get(
+            "errors"
+        )
+
+        if errors:
+            messages = []
+
+            for item in errors:
+                if isinstance(
+                    item,
+                    dict
+                ):
+                    message = str(
+                        item.get(
+                            "message"
+                        )
+                        or ""
+                    ).strip()
+
+                    if message:
+                        messages.append(
+                            message
+                        )
+
+            if not messages:
+                messages.append(
+                    "Unknown GraphQL error"
+                )
+
+            raise RuntimeError(
+                "Stash GraphQL error: "
+                + " | ".join(
+                    messages
+                )
+            )
+
+        data = result.get(
+            "data"
+        )
+
+        if not isinstance(
+            data,
+            dict
+        ):
+            raise RuntimeError(
+                "Stash GraphQL response did not contain data."
+            )
+
+        return data
 
     def get_plugin_environment(self):
-        configuration = self.stash.get_configuration() or {}
-        general = configuration.get("general") or {}
-        plugins = configuration.get("plugins") or {}
+        query = """
+        query PPicsPluginEnvironment(
+            $plugin_ids: [ID!]
+        ) {
+            configuration {
+                general {
+                    createGalleriesFromFolders
+                    stashes {
+                        path
+                        excludeImage
+                    }
+                }
+                plugins(
+                    include: $plugin_ids
+                )
+            }
+        }
+        """
+
+        data = self.query(
+            query,
+            {
+                "plugin_ids": [
+                    PLUGIN_ID
+                ]
+            }
+        )
+
+        configuration = (
+            data.get(
+                "configuration"
+            )
+            or {}
+        )
+
+        general = (
+            configuration.get(
+                "general"
+            )
+            or {}
+        )
+
+        plugins = (
+            configuration.get(
+                "plugins"
+            )
+            or {}
+        )
 
         settings = {}
 
-        if isinstance(plugins, dict):
-            candidate = plugins.get(PLUGIN_ID)
+        if isinstance(
+            plugins,
+            dict
+        ):
+            candidate = plugins.get(
+                PLUGIN_ID
+            )
 
-            if isinstance(candidate, dict):
+            if isinstance(
+                candidate,
+                dict
+            ):
                 settings = candidate
 
         return {
-            "settings": settings,
-            "stashes": general.get("stashes") or [],
-            "create_galleries_from_folders": bool(
-                general.get("createGalleriesFromFolders")
-            )
+            "settings":
+                settings,
+            "stashes":
+                general.get(
+                    "stashes"
+                )
+                or [],
+            "create_galleries_from_folders":
+                bool(
+                    general.get(
+                        "createGalleriesFromFolders"
+                    )
+                )
         }
 
     def find_performer(self, name):
