@@ -8676,7 +8676,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         description: "Browse, select and import images from PornPics.", // Required: short description shown below the app name.
         category: "Tools", // Required: Management, Players, Tools, Utility, or other.
         Author: "bprpisync", // Required: author or developer name shown in Stash App Drawer.
-        path: "/plugin/ppics" // Required: Stash page that opens when the app is clicked.
+        path: "/plugin/pornpics" // Required: Stash page that opens when the app is clicked.
     };
 
 
@@ -8806,7 +8806,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                         "a", {
                             key: "stash-ppics-legacy-navbar-entry",
                             className: "nav-link",
-                            href: "/plugin/ppics",
+                            href: "/plugin/pornpics",
                             title: "PornPics Importer",
                             "aria-label": "PornPics Importer"
                         },
