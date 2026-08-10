@@ -26,6 +26,8 @@ After adding the source, refresh **Available Plugins** and install the plugin yo
 
 ![PornPics Importer search page](docs/images/ppics/ppics_detail2.png)
 
+**Requires Stash App Drawer to be installed (install via the same index.yml above)**
+
 ## What it does
 
 PornPics Importer adds a complete PornPics browser to Stash.
