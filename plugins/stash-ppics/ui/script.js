@@ -1,4 +1,4 @@
-const pp_VERSION = "v1.0.1";
+const pp_VERSION = "v1.0.3";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -10,9 +10,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     const SESSION_RESET_TOKEN_KEY = "pornpics-importer-session-reset-token";
     const GLOBAL_ROUTE_PATH = "/plugin/pornpics";
     const GLOBAL_SAFE_URL =
-        "/scenes" +
-        String.fromCharCode(63) +
-        "ppics=pornpics";
+        "/scenes"
+        + String.fromCharCode(63)
+        + "ppics=pornpics";
 
     const GLOBAL_SEARCH_STORAGE_KEY =
         "pornpics-importer-global-search-state";
@@ -273,8 +273,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 );
 
             if (
-                state &&
-                typeof state === "object"
+                state
+                && typeof state === "object"
             ) {
                 lastGlobalSearchState =
                     state;
@@ -296,7 +296,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             const keys = [];
 
             for (
-                let index = 0; index < window.sessionStorage.length; index += 1
+                let index = 0;
+                index < window.sessionStorage.length;
+                index += 1
             ) {
                 const key =
                     window.sessionStorage.key(
@@ -540,8 +542,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
     function isGlobalPornPicsRoute() {
         return (
-            isRegisteredGlobalPornPicsPath() ||
-            isGlobalPornPicsSafeUrl()
+            isRegisteredGlobalPornPicsPath()
+            || isGlobalPornPicsSafeUrl()
         );
     }
 
@@ -563,9 +565,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         return (
-            String(context.type || "performer") +
-            ":" +
-            String(context.value || "")
+            String(context.type || "performer")
+            + ":"
+            + String(context.value || "")
         ).trim().toLowerCase();
     }
 
@@ -612,9 +614,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         return (
-            currentPerformerName ||
-            currentContextValue() ||
-            ""
+            currentPerformerName
+            || currentContextValue()
+            || ""
         );
     }
 
@@ -640,7 +642,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
 
         for (
-            let index = 0; index < panes.length; index += 1
+            let index = 0;
+            index < panes.length;
+            index += 1
         ) {
             const pane = panes[index];
             const parent = pane.parentElement;
@@ -686,7 +690,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 );
 
             for (
-                let index = 0; index < children.length; index += 1
+                let index = 0;
+                index < children.length;
+                index += 1
             ) {
                 const child =
                     children[index];
@@ -1421,10 +1427,10 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
         if (view.type === "global_search") {
             return (
-                "global_search:" +
-                String(view.query || "") +
-                ":" +
-                String(view.searchType || "all")
+                "global_search:"
+                + String(view.query || "")
+                + ":"
+                + String(view.searchType || "all")
             );
         }
 
@@ -2011,8 +2017,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             let imported = false;
 
             if (
-                status &&
-                Number(
+                status
+                && Number(
                     status.imported_count || 0
                 ) > 0
             ) {
@@ -2059,8 +2065,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 "click",
                 function () {
                     sceneImportFilter =
-                        button.dataset.sceneImportFilter ||
-                        "all";
+                        button.dataset.sceneImportFilter
+                        || "all";
 
                     document.querySelectorAll(
                         ".ppics-scene-filter"
@@ -2200,9 +2206,12 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             }
 
             items.push({
-                scene_url: scene.url,
-                title: scene.title,
-                image_urls: imageUrls
+                scene_url:
+                    scene.url,
+                title:
+                    scene.title,
+                image_urls:
+                    imageUrls
             });
         });
 
@@ -2222,12 +2231,16 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
         try {
             const payload =
-                await requestData({
-                        mode: "import_status",
-                        status_json: JSON.stringify(
-                            items
-                        ),
-                        deep: deepValue
+                await requestData(
+                    {
+                        mode:
+                            "import_status",
+                        status_json:
+                            JSON.stringify(
+                                items
+                            ),
+                        deep:
+                            deepValue
                     },
                     null,
                     60000
@@ -2267,11 +2280,16 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
 
         loadImportStatus(
-            [{
-                scene_url: scene.url,
-                title: scene.title,
-                image_urls: imageUrls
-            }],
+            [
+                {
+                    scene_url:
+                        scene.url,
+                    title:
+                        scene.title,
+                    image_urls:
+                        imageUrls
+                }
+            ],
             true
         );
     }
@@ -2295,8 +2313,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 );
 
             if (
-                !details ||
-                !(details.images || []).length
+                !details
+                || !(details.images || []).length
             ) {
                 return;
             }
@@ -2325,8 +2343,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
 
             if (
-                total > 0 &&
-                selected >= total
+                total > 0
+                && selected >= total
             ) {
                 button.classList.add(
                     "ppics-add-all-complete"
@@ -2501,7 +2519,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             return sceneCache.get(scene.url);
         }
 
-        const data = await requestData({
+        const data = await requestData(
+            {
                 mode: "scene",
                 scene_url: scene.url
             },
@@ -2654,9 +2673,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             } else {
                 image.addEventListener(
                     "load",
-                    finishImage, {
-                        once: true
-                    }
+                    finishImage,
+                    {once: true}
                 );
             }
         });
@@ -2825,7 +2843,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                             }
                         }
                     );
-                }, {
+                },
+                {
                     root: null,
                     rootMargin: "700px 0px",
                     threshold: 0.01
@@ -2923,8 +2942,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
         if (data.context_type) {
             label =
-                data.context_type.charAt(0).toUpperCase() +
-                data.context_type.slice(1);
+                data.context_type.charAt(0).toUpperCase()
+                + data.context_type.slice(1);
         }
 
         let html = `
@@ -3424,7 +3443,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 scene.title
             );
 
-            const data = await requestData({
+            const data = await requestData(
+                {
                     mode: "scene",
                     scene_url: scene.url
                 },
@@ -3763,7 +3783,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 record: record,
                 imageUrl: record.imageUrl,
                 thumbnail: record.thumbnail,
-                title: scene.title +
+                title:
+                    scene.title +
                     " #" +
                     String(image.index)
             });
@@ -4068,7 +4089,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
                 activeSpotlight.touchStartedAt =
                     Date.now();
-            }, {
+            },
+            {
                 passive: true
             }
         );
@@ -4086,16 +4108,16 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 }
 
                 const deltaX =
-                    event.changedTouches[0].clientX -
-                    activeSpotlight.touchStartX;
+                    event.changedTouches[0].clientX
+                    - activeSpotlight.touchStartX;
 
                 const deltaY =
-                    event.changedTouches[0].clientY -
-                    activeSpotlight.touchStartY;
+                    event.changedTouches[0].clientY
+                    - activeSpotlight.touchStartY;
 
                 const elapsed =
-                    Date.now() -
-                    activeSpotlight.touchStartedAt;
+                    Date.now()
+                    - activeSpotlight.touchStartedAt;
 
                 if (elapsed > 700) {
                     return;
@@ -4114,7 +4136,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 } else {
                     moveSpotlight(-1);
                 }
-            }, {
+            },
+            {
                 passive: true
             }
         );
@@ -4627,9 +4650,12 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
             if (!grouped.has(sceneId)) {
                 grouped.set(
-                    sceneId, {
-                        sceneId: item.sceneId,
-                        title: item.sceneTitle ||
+                    sceneId,
+                    {
+                        sceneId:
+                            item.sceneId,
+                        title:
+                            item.sceneTitle ||
                             "PornPics scene",
                         items: []
                     }
@@ -5913,7 +5939,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
 
         try {
-            const preflight = await requestData({
+            const preflight = await requestData(
+                {
                     mode: "preflight_import",
                     performer: currentContextPerformer(),
                     context_type: currentContextType(),
@@ -6236,8 +6263,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
     function smoothEtaEstimate(value) {
         if (
-            !importProgressStats ||
-            value === null
+            !importProgressStats
+            || value === null
         ) {
             return value;
         }
@@ -6246,8 +6273,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         const phase = stats.phase;
 
         if (
-            stats.etaPhase !== phase ||
-            stats.etaSeconds === null
+            stats.etaPhase !== phase
+            || stats.etaSeconds === null
         ) {
             stats.etaPhase = phase;
             stats.etaSeconds = value;
@@ -6311,8 +6338,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 stats.averageSecondsPerImage;
 
             if (
-                averagePerImage === null ||
-                averagePerImage <= 0
+                averagePerImage === null
+                || averagePerImage <= 0
             ) {
                 averagePerImage =
                     elapsed /
@@ -6789,7 +6816,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 detail: "Preparing selected scenes"
             });
 
-            const prepared = await requestData({
+            const prepared = await requestData(
+                {
                     mode: "prepare_import",
                     performer: currentContextPerformer(),
                     context_type: currentContextType(),
@@ -6829,7 +6857,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 detail: "Linking galleries, covers, tags and video scenes"
             });
 
-            const finalized = await requestData({
+            const finalized = await requestData(
+                {
                     mode: "finalize_import",
                     import_id: prepared.import_id
                 },
@@ -6931,11 +6960,14 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         (failedDownloads || []).forEach(
             function (item) {
                 issues.push({
-                    title: item.sceneTitle ||
+                    title:
+                        item.sceneTitle ||
                         imageFilename(item.imageUrl) ||
                         "PornPics photo",
-                    source: item.imageUrl || "",
-                    error: item.error ||
+                    source:
+                        item.imageUrl || "",
+                    error:
+                        item.error ||
                         "Download failed"
                 });
             }
@@ -6944,13 +6976,16 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         (missing || []).forEach(
             function (item) {
                 issues.push({
-                    title: imageFilename(
+                    title:
+                        imageFilename(
                             item.source_url
                         ) ||
                         "PornPics photo",
-                    source: item.source_url ||
+                    source:
+                        item.source_url ||
                         item.path || "",
-                    error: item.error ||
+                    error:
+                        item.error ||
                         "Stash could not find the scanned image"
                 });
             }
@@ -7078,8 +7113,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             failedDownloads.length
         ) {
             const issueCount =
-                missing.length +
-                failedDownloads.length;
+                missing.length
+                + failedDownloads.length;
 
             statusHtml = `
                 <div class="alert alert-warning">
@@ -7099,7 +7134,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         (finalized.images || []).forEach(function (item) {
             if (item.source_url) {
                 importedImageStatus.set(
-                    item.source_url, {
+                    item.source_url,
+                    {
                         imported: true,
                         image_id: item.id,
                         gallery_id: item.gallery_id
@@ -7324,19 +7360,23 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 "Loading scene previews",
                 "Building the results page"
             ],
-            "Page " +
-            String(page) +
-            " · " +
-            String(currentBrowseContext.label || currentBrowseContext.value)
+            "Page "
+            + String(page)
+            + " · "
+            + String(currentBrowseContext.label || currentBrowseContext.value)
         );
 
         try {
             const args = {
                 mode: "search_context",
-                context_type: currentBrowseContext.type,
-                context_value: currentBrowseContext.value,
-                context_label: currentBrowseContext.label,
-                context_url: currentBrowseContext.url || "",
+                context_type:
+                    currentBrowseContext.type,
+                context_value:
+                    currentBrowseContext.value,
+                context_label:
+                    currentBrowseContext.label,
+                context_url:
+                    currentBrowseContext.url || "",
                 page: page,
                 seed: paginationSeed
             };
@@ -7420,9 +7460,12 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             ) {
                 recordView({
                     type: "global_search",
-                    query: lastGlobalSearchState.query,
-                    searchType: lastGlobalSearchState.searchType,
-                    results: lastGlobalSearchState.results
+                    query:
+                        lastGlobalSearchState.query,
+                    searchType:
+                        lastGlobalSearchState.searchType,
+                    results:
+                        lastGlobalSearchState.results
                 });
             }
         }
@@ -7485,14 +7528,14 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         if (
             lowered.indexOf(
                 "pornpics.com/"
-            ) === 0 ||
-            lowered.indexOf(
+            ) === 0
+            || lowered.indexOf(
                 "www.pornpics.com/"
             ) === 0
         ) {
             candidate =
-                "https://" +
-                candidate;
+                "https://"
+                + candidate;
         }
 
         try {
@@ -7509,14 +7552,14 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             return (
                 (
                     parsed.protocol ===
-                    "https:" ||
-                    parsed.protocol ===
+                    "https:"
+                    || parsed.protocol ===
                     "http:"
-                ) &&
-                (
+                )
+                && (
                     host ===
-                    "pornpics.com" ||
-                    host ===
+                    "pornpics.com"
+                    || host ===
                     "www.pornpics.com"
                 )
             );
@@ -7569,9 +7612,12 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         if (searchState) {
             recordView({
                 type: "global_search",
-                query: searchState.query,
-                searchType: searchState.searchType,
-                results: searchState.results
+                query:
+                    searchState.query,
+                searchType:
+                    searchState.searchType,
+                results:
+                    searchState.results
             });
         }
 
@@ -7584,8 +7630,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         target
     ) {
         if (
-            !target ||
-            !target.kind
+            !target
+            || !target.kind
         ) {
             throw new Error(
                 "PornPics returned an invalid URL target."
@@ -7608,7 +7654,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             "context"
         ) {
             const context =
-                Object.assign({},
+                Object.assign(
+                    {},
                     target.context || {}
                 );
 
@@ -7809,8 +7856,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         if (
-            query &&
-            query.length < 2
+            query
+            && query.length < 2
         ) {
             return `
                 <div class="ppics-global-welcome ppics-global-small-state">
@@ -7824,8 +7871,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         if (
-            query &&
-            !results.length
+            query
+            && !results.length
         ) {
             return `
                 <div class="ppics-global-empty">
@@ -7910,11 +7957,16 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 "click",
                 function () {
                     startBrowseContext({
-                        type: card.dataset.contextType,
-                        value: card.dataset.contextValue,
-                        label: card.dataset.contextLabel,
-                        url: card.dataset.contextUrl,
-                        source: "global"
+                        type:
+                            card.dataset.contextType,
+                        value:
+                            card.dataset.contextValue,
+                        label:
+                            card.dataset.contextLabel,
+                        url:
+                            card.dataset.contextUrl,
+                        source:
+                            "global"
                     });
                 }
             );
@@ -8105,7 +8157,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
                         lastGlobalSearchState = {
                             query: "",
-                            searchType: selectedType,
+                            searchType:
+                                selectedType,
                             results: []
                         };
 
@@ -8272,10 +8325,14 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
 
         try {
-            const data = await requestData({
-                    mode: "global_context_search",
-                    query: query,
-                    search_type: searchType
+            const data = await requestData(
+                {
+                    mode:
+                        "global_context_search",
+                    query:
+                        query,
+                    search_type:
+                        searchType
                 },
                 null,
                 90000
@@ -8291,7 +8348,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             if (data.direct_target) {
                 lastGlobalSearchState = {
                     query: query,
-                    searchType: searchType,
+                    searchType:
+                        searchType,
                     results: []
                 };
 
@@ -8309,8 +8367,10 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
             lastGlobalSearchState = {
                 query: query,
-                searchType: searchType,
-                results: results
+                searchType:
+                    searchType,
+                results:
+                    results
             };
 
             saveGlobalSearchState();
@@ -8323,10 +8383,14 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
             if (!live) {
                 recordView({
-                    type: "global_search",
-                    query: query,
-                    searchType: searchType,
-                    results: results
+                    type:
+                        "global_search",
+                    query:
+                        query,
+                    searchType:
+                        searchType,
+                    results:
+                        results
                 });
             }
 
@@ -8427,7 +8491,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
 
             return React.createElement(
-                "div", {
+                "div",
+                {
                     id: "ppics-global-root",
                     className: "ppics-global-root"
                 }
@@ -8488,22 +8553,89 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             return;
         }
 
-        window.history.pushState({},
+        window.history.pushState(
+            {},
             "",
             GLOBAL_ROUTE_PATH
         );
 
         window.dispatchEvent(
             new PopStateEvent(
-                "popstate", {
-                    state: window.history.state
+                "popstate",
+                {
+                    state:
+                        window.history.state
                 }
             )
         );
     }
 
     function injectGlobalNavLink() {
-        //replaced with Stash App Drawer
+        if (
+            document.getElementById(
+                "ppics-main-nav-link"
+            )
+        ) {
+            return;
+        }
+
+        const targets = [
+            document.querySelector('a[href="/images"]'),
+            document.querySelector('a[href="/performers"]'),
+            document.querySelector('a[href="/scenes"]')
+        ];
+
+        let target = null;
+
+        targets.forEach(function (candidate) {
+            if (!target && candidate) {
+                target = candidate;
+            }
+        });
+
+        if (!target || !target.parentElement) {
+            return;
+        }
+
+        const link = document.createElement("a");
+
+        link.id =
+            "ppics-main-nav-link";
+
+        link.href =
+            GLOBAL_SAFE_URL;
+
+        link.className =
+            target.className
+            + " ppics-main-nav-link";
+
+        link.textContent =
+            "PornPics";
+
+        link.setAttribute(
+            "role",
+            "button"
+        );
+
+        link.setAttribute(
+            "aria-label",
+            "Open PornPics"
+        );
+
+        link.addEventListener(
+            "click",
+            function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                navigateToGlobalPornPics();
+            }
+        );
+
+        target.insertAdjacentElement(
+            "afterend",
+            link
+        );
     }
 
     function enhanceGenderSetting() {
@@ -8657,230 +8789,3 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     injectGlobalNavLink();
     setInterval(inject, 500);
 })();
-
-
-// ============================================================
-// Stash App Drawer integration
-// ============================================================
-
-(function () {
-    "use strict";
-
-    var DRAWER_WAIT_MS = 2000;
-    var integrationFinished = false;
-    var fallbackTimerId = null;
-
-    var appRegistration = {
-        id: "stash-ppics", // Required: permanent unique technical plugin ID.
-        name: "PornPics Importer", // Required: app name shown inside Stash App Drawer.
-        description: "Browse, select and import images from PornPics.", // Required: short description shown below the app name.
-        category: "Tools", // Required: Management, Players, Tools, Utility, or other.
-        Author: "bprpisync", // Required: author or developer name shown in Stash App Drawer.
-        path: "/plugin/pornpics" // Required: Stash page that opens when the app is clicked.
-    };
-
-
-    // --------------------------------------------------------
-    // Check if Stash App Drawer is available
-    // --------------------------------------------------------
-
-    function isStashAppDrawerReady() {
-        if (!window.StashAppDrawer) {
-            return false;
-        }
-
-        if (typeof window.StashAppDrawer.register !== "function") {
-            return false;
-        }
-
-        return true;
-    }
-
-
-    // --------------------------------------------------------
-    // Stop waiting for Stash App Drawer
-    // --------------------------------------------------------
-
-    function cleanupDrawerWait() {
-        window.removeEventListener(
-            "stash-app-drawer:ready",
-            handleDrawerReady
-        );
-
-        if (fallbackTimerId !== null) {
-            window.clearTimeout(fallbackTimerId);
-            fallbackTimerId = null;
-        }
-    }
-
-
-    // --------------------------------------------------------
-    // Register PornPics Importer with Stash App Drawer
-    // --------------------------------------------------------
-
-    function registerWithStashAppDrawer() {
-        if (!isStashAppDrawerReady()) {
-            return false;
-        }
-
-        integrationFinished = true;
-        cleanupDrawerWait();
-
-        window.StashAppDrawer.register(appRegistration);
-
-        console.log(
-            "[PornPics Importer] Registered with Stash App Drawer."
-        );
-
-        return true;
-    }
-
-
-    // --------------------------------------------------------
-    // Stash App Drawer finished loading
-    // --------------------------------------------------------
-
-    function handleDrawerReady() {
-        if (integrationFinished) {
-            return;
-        }
-
-        registerWithStashAppDrawer();
-    }
-
-
-    // --------------------------------------------------------
-    // Legacy navbar fallback
-    //
-    // Only used when Stash App Drawer is not installed.
-    // --------------------------------------------------------
-
-    function installLegacyNavbarEntry() {
-        if (integrationFinished) {
-            return;
-        }
-
-        integrationFinished = true;
-        cleanupDrawerWait();
-
-        var api = window.PluginApi;
-
-        if (!api) {
-            console.warn(
-                "[PornPics Importer] PluginApi is unavailable."
-            );
-            return;
-        }
-
-        if (!api.patch) {
-            console.warn(
-                "[PornPics Importer] PluginApi.patch is unavailable."
-            );
-            return;
-        }
-
-        if (typeof api.patch.after !== "function") {
-            console.warn(
-                "[PornPics Importer] PluginApi.patch.after is unavailable."
-            );
-            return;
-        }
-
-        if (!api.React) {
-            console.warn(
-                "[PornPics Importer] PluginApi.React is unavailable."
-            );
-            return;
-        }
-
-        var React = api.React;
-
-        try {
-            api.patch.after(
-                "MainNavBar.MenuItems",
-                function () {
-                    var args = Array.prototype.slice.call(arguments);
-                    var result = args[args.length - 1];
-
-                    var legacyEntry = React.createElement(
-                        "a", {
-                            key: "stash-ppics-legacy-navbar-entry",
-                            className: "nav-link",
-                            href: "/plugin/pornpics",
-                            title: "PornPics Importer",
-                            "aria-label": "PornPics Importer"
-                        },
-                        "PornPics"
-                    );
-
-                    return React.createElement(
-                        React.Fragment,
-                        null,
-                        result,
-                        legacyEntry
-                    );
-                }
-            );
-
-            console.log(
-                "[PornPics Importer] Stash App Drawer not found. Using legacy navbar entry."
-            );
-
-        } catch (error) {
-            console.error(
-                "[PornPics Importer] Failed to install legacy navbar entry:",
-                error
-            );
-        }
-    }
-
-
-    // --------------------------------------------------------
-    // Start integration
-    // --------------------------------------------------------
-
-    if (isStashAppDrawerReady()) {
-
-        // Drawer was loaded before PornPics.
-        registerWithStashAppDrawer();
-
-    } else {
-
-        // Drawer may still be loading.
-        window.addEventListener(
-            "stash-app-drawer:ready",
-            handleDrawerReady, {
-                once: true
-            }
-        );
-
-        fallbackTimerId = window.setTimeout(
-            function () {
-
-                if (integrationFinished) {
-                    return;
-                }
-
-                window.removeEventListener(
-                    "stash-app-drawer:ready",
-                    handleDrawerReady
-                );
-
-                if (isStashAppDrawerReady()) {
-
-                    // Drawer appeared during the waiting period.
-                    registerWithStashAppDrawer();
-
-                } else {
-
-                    // Drawer is not installed or enabled.
-                    // Restore the old PornPics navbar button.
-                    installLegacyNavbarEntry();
-                }
-
-            },
-            DRAWER_WAIT_MS
-        );
-    }
-
-}());
