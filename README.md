@@ -2,6 +2,12 @@
 
 A collection of my plugins for [Stash](https://stashapp.cc/) that add new browsing, importing, and customization features to your Stash instance.
 
+## Quick Navigation
+
+[PornPics Importer (Handy tool for browsing, selecting and bulk image downloading from pornpics.com)](https://github.com/bprpisync/stash#pornpics-importer)
+[Random Backgrounds (Intelligent auto Stash backgrounds!)](https://github.com/bprpisync/stash#random-backgrounds)
+[Stash App Drawer {Deprecated} (One place for all Stash-apps)](https://github.com/bprpisync/stash#stash-app-drawer)
+
 ---
 
 ## Installation
@@ -191,7 +197,9 @@ The more images you have tagged, the better the plugin will function!
 note: For the context-aware feature: You need to have content linked to the images for example for it to show on a performer page, the image needs a performer tag of that performer!
 
 
-# Stash App Drawer
+# Stash App Drawer (Deprecated)
+
+*This plugin will not be updated. If you want to continue working on it, feel free to fork it!*
 
 Stash App Drawer adds one **Apps** entry to the Stash navbar and provides a shared launcher registry for other Stash plugins.
 
