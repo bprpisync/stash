@@ -1,4 +1,4 @@
-const pp_VERSION = "v1.0.3";
+const pp_VERSION = "v1.1";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -8570,34 +8570,188 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
     }
 
-    function injectGlobalNavLink() {
-        if (
-            document.getElementById(
-                "ppics-main-nav-link"
-            )
-        ) {
-            return;
+    function navAnchorPath(anchor) {
+        if (!anchor) {
+            return "";
         }
 
-        const targets = [
-            document.querySelector('a[href="/images"]'),
-            document.querySelector('a[href="/performers"]'),
-            document.querySelector('a[href="/scenes"]')
+        try {
+            const parsed =
+                new URL(
+                    anchor.href,
+                    window.location.origin
+                );
+
+            return parsed.pathname || "";
+        } catch (error) {
+            const href =
+                String(
+                    anchor.getAttribute("href")
+                    || ""
+                );
+
+            const hashIndex =
+                href.indexOf("#");
+
+            let cleanHref =
+                href;
+
+            if (hashIndex >= 0) {
+                cleanHref =
+                    href.slice(
+                        0,
+                        hashIndex
+                    );
+            }
+
+            const queryMarker =
+                String.fromCharCode(63);
+
+            const queryIndex =
+                cleanHref.indexOf(
+                    queryMarker
+                );
+
+            if (queryIndex >= 0) {
+                cleanHref =
+                    cleanHref.slice(
+                        0,
+                        queryIndex
+                    );
+            }
+
+            return cleanHref;
+        }
+    }
+
+    function isVisibleNavAnchor(anchor) {
+        if (!anchor) {
+            return false;
+        }
+
+        const style =
+            window.getComputedStyle(
+                anchor
+            );
+
+        if (
+            style.display === "none"
+            || style.visibility === "hidden"
+        ) {
+            return false;
+        }
+
+        const rect =
+            anchor.getBoundingClientRect();
+
+        if (
+            rect.width <= 0
+            || rect.height <= 0
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function findGlobalNavTarget() {
+        const wantedPaths = [
+            "/images",
+            "/performers",
+            "/scenes",
+            "/galleries",
+            "/studios"
         ];
 
-        let target = null;
+        const anchors =
+            Array.from(
+                document.querySelectorAll(
+                    "a[href]"
+                )
+            );
 
-        targets.forEach(function (candidate) {
-            if (!target && candidate) {
-                target = candidate;
+        let fallback = null;
+
+        for (
+            let pathIndex = 0;
+            pathIndex < wantedPaths.length;
+            pathIndex += 1
+        ) {
+            const wantedPath =
+                wantedPaths[
+                    pathIndex
+                ];
+
+            for (
+                let anchorIndex = 0;
+                anchorIndex < anchors.length;
+                anchorIndex += 1
+            ) {
+                const anchor =
+                    anchors[
+                        anchorIndex
+                    ];
+
+                if (
+                    navAnchorPath(
+                        anchor
+                    ) !== wantedPath
+                ) {
+                    continue;
+                }
+
+                const nav =
+                    anchor.closest(
+                        "nav"
+                    );
+
+                const navbar =
+                    anchor.closest(
+                        ".navbar"
+                    );
+
+                const navbarNav =
+                    anchor.closest(
+                        ".navbar-nav"
+                    );
+
+                if (
+                    isVisibleNavAnchor(
+                        anchor
+                    )
+                    && (
+                        nav
+                        || navbar
+                        || navbarNav
+                    )
+                ) {
+                    return anchor;
+                }
+
+                if (
+                    !fallback
+                    && (
+                        nav
+                        || navbar
+                        || navbarNav
+                    )
+                ) {
+                    fallback =
+                        anchor;
+                }
             }
-        });
-
-        if (!target || !target.parentElement) {
-            return;
         }
 
-        const link = document.createElement("a");
+        return fallback;
+    }
+
+    function makeGlobalNavLink(
+        target
+    ) {
+        const link =
+            document.createElement(
+                "a"
+            );
 
         link.id =
             "ppics-main-nav-link";
@@ -8606,7 +8760,10 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             GLOBAL_SAFE_URL;
 
         link.className =
-            target.className
+            (
+                target.className
+                || ""
+            )
             + " ppics-main-nav-link";
 
         link.textContent =
@@ -8632,10 +8789,123 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             }
         );
 
+        return link;
+    }
+
+    function injectGlobalNavLink() {
+        const existing =
+            document.getElementById(
+                "ppics-main-nav-link"
+            );
+
+        if (
+            existing
+            && existing.isConnected
+        ) {
+            return true;
+        }
+
+        const target =
+            findGlobalNavTarget();
+
+        if (!target) {
+            return false;
+        }
+
+        const link =
+            makeGlobalNavLink(
+                target
+            );
+
+        const parent =
+            target.parentElement;
+
+        if (!parent) {
+            return false;
+        }
+
+        const parentTag =
+            String(
+                parent.tagName || ""
+            ).toLowerCase();
+
+        const parentClasses =
+            String(
+                parent.className || ""
+            );
+
+        const wrappedNavItem =
+            (
+                parentTag === "li"
+                || parentClasses.indexOf(
+                    "nav-item"
+                ) >= 0
+            );
+
+        if (
+            wrappedNavItem
+            && parent.parentElement
+        ) {
+            const wrapper =
+                document.createElement(
+                    parentTag || "div"
+                );
+
+            wrapper.className =
+                parent.className || "";
+
+            wrapper.appendChild(
+                link
+            );
+
+            parent.insertAdjacentElement(
+                "afterend",
+                wrapper
+            );
+
+            return true;
+        }
+
         target.insertAdjacentElement(
             "afterend",
             link
         );
+
+        return true;
+    }
+
+    function startGlobalNavObserver() {
+        if (
+            window.ppicsGlobalNavObserver
+        ) {
+            return;
+        }
+
+        const root =
+            document.body
+            || document.documentElement;
+
+        if (!root) {
+            return;
+        }
+
+        const observer =
+            new MutationObserver(
+                function () {
+                    injectGlobalNavLink();
+                }
+            );
+
+        observer.observe(
+            root,
+            {
+                childList: true,
+                subtree: true
+            }
+        );
+
+        window.ppicsGlobalNavObserver =
+            observer;
     }
 
     function enhanceGenderSetting() {
@@ -8716,6 +8986,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     function inject() {
         enhanceGenderSetting();
         registerGlobalPornPicsRoute();
+        startGlobalNavObserver();
         injectGlobalNavLink();
 
         if (isGlobalPornPicsSafeUrl()) {
@@ -8786,6 +9057,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     }
 
     registerGlobalPornPicsRoute();
+    startGlobalNavObserver();
     injectGlobalNavLink();
     setInterval(inject, 500);
 })();

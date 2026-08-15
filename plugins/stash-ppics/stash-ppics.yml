@@ -1,6 +1,6 @@
 name: PornPics Importer
 description: Browse, review and import full-size PornPics images into Stash.
-version: 1.0.3
+version: 1.1
 
 exec:
   - python
