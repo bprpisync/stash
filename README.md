@@ -5,7 +5,9 @@ A collection of my plugins for [Stash](https://stashapp.cc/) that add new browsi
 ## Quick Navigation
 
 [PornPics Importer (Handy tool for browsing, selecting and bulk image downloading from pornpics.com)](https://github.com/bprpisync/stash#pornpics-importer)
+
 [Random Backgrounds (Intelligent auto Stash backgrounds!)](https://github.com/bprpisync/stash#random-backgrounds)
+
 [Stash App Drawer {Deprecated} (One place for all Stash-apps)](https://github.com/bprpisync/stash#stash-app-drawer)
 
 ---
