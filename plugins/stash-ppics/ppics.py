@@ -1117,6 +1117,54 @@ def normalize_gender_mode(value):
     return aliases.get(value, "women")
 
 
+def boolean_setting(
+    settings,
+    key,
+    default=False
+):
+    value = settings.get(
+        key
+    )
+
+    if isinstance(
+        value,
+        bool
+    ):
+        return value
+
+    if isinstance(
+        value,
+        str
+    ):
+        normalized = value.strip().casefold()
+
+        if normalized in (
+            "true",
+            "1",
+            "yes",
+            "on"
+        ):
+            return True
+
+        if normalized in (
+            "false",
+            "0",
+            "no",
+            "off",
+            ""
+        ):
+            return False
+
+    if value is None:
+        return bool(
+            default
+        )
+
+    return bool(
+        value
+    )
+
+
 def get_environment(stash):
     environment = stash.get_plugin_environment()
     settings = environment.get("settings") or {}
@@ -1162,6 +1210,21 @@ def get_environment(stash):
         "output_path": output_path,
         "search_limit": search_limit,
         "gender_mode": gender_mode,
+        "skip_tags": boolean_setting(
+            settings,
+            "skipTags",
+            False
+        ),
+        "skip_studio": boolean_setting(
+            settings,
+            "skipStudio",
+            False
+        ),
+        "skip_performers": boolean_setting(
+            settings,
+            "skipPerformers",
+            False
+        ),
         "image_library_paths": image_library_paths,
         "output_valid": output_valid,
         "create_galleries_from_folders": bool(
@@ -1769,28 +1832,63 @@ def preflight_import(
         phase="gather"
     )
 
-    performer_names = [performer_name] if performer_name else []
+    performer_names = []
+
+    if (
+        performer_name
+        and not environment.get(
+            "skip_performers"
+        )
+    ):
+        performer_names.append(
+            performer_name
+        )
+
     studio_names = []
-    tag_names = [IMPORTER_TAG]
+    tag_names = []
+
+    if not environment.get(
+        "skip_tags"
+    ):
+        tag_names.append(
+            IMPORTER_TAG
+        )
     preview_scenes = []
     total = len(scenes)
 
     for index, scene in enumerate(scenes, start=1):
         details = scene["details"]
 
-        performer_names.extend(
-            performer_names_for_mode(
-                stash,
-                performer_name,
-                details.get("performers") or [],
-                environment.get("gender_mode") or "women"
+        if not environment.get(
+            "skip_performers"
+        ):
+            performer_names.extend(
+                performer_names_for_mode(
+                    stash,
+                    performer_name,
+                    details.get("performers") or [],
+                    environment.get("gender_mode") or "women"
+                )
             )
-        )
 
-        if details.get("studio"):
-            studio_names.append(details["studio"])
+        if (
+            not environment.get(
+                "skip_studio"
+            )
+            and details.get(
+                "studio"
+            )
+        ):
+            studio_names.append(
+                details["studio"]
+            )
 
-        tag_names.extend(details.get("tags") or [])
+        if not environment.get(
+            "skip_tags"
+        ):
+            tag_names.extend(
+                details.get("tags") or []
+            )
 
         write_progress(
             request_id,
@@ -1829,6 +1927,15 @@ def preflight_import(
             "tags": unique_names(
                 [IMPORTER_TAG] + (details.get("tags") or [])
             ),
+            "scene_tags": (
+                []
+                if environment.get(
+                    "skip_tags"
+                )
+                else unique_names(
+                    details.get("tags") or []
+                )
+            ),
             "video_candidates": video_candidates
         })
 
@@ -1836,7 +1943,7 @@ def preflight_import(
         request_id,
         "metadata_match",
         "Matching PornPics metadata in Stash",
-        detail="Checking performers, studios and tags"
+        detail="Checking enabled metadata"
     )
 
     return {
@@ -1848,6 +1955,21 @@ def preflight_import(
         "output_path": environment["output_path"],
         "search_limit": environment["search_limit"],
         "gender_mode": environment["gender_mode"],
+        "skip_tags": bool(
+            environment.get(
+                "skip_tags"
+            )
+        ),
+        "skip_studio": bool(
+            environment.get(
+                "skip_studio"
+            )
+        ),
+        "skip_performers": bool(
+            environment.get(
+                "skip_performers"
+            )
+        ),
         "create_galleries_from_folders": environment[
             "create_galleries_from_folders"
         ],
@@ -1914,12 +2036,135 @@ def normalized_mapping(options, key):
     return result
 
 
+def normalized_tag_mode(
+    options
+):
+    mode = str(
+        (
+            options
+            or {}
+        ).get(
+            "tag_mode"
+        )
+        or "custom"
+    ).strip().lower()
+
+    if mode not in (
+        "none",
+        "all",
+        "custom"
+    ):
+        mode = "custom"
+
+    return mode
+
+
+def normalized_image_tag_assignments(
+    options
+):
+    raw = options.get(
+        "image_tag_assignments"
+    ) or {}
+
+    result = {}
+
+    if not isinstance(
+        raw,
+        dict
+    ):
+        return result
+
+    for scene_url, image_map in raw.items():
+        scene_key = str(
+            scene_url or ""
+        ).strip().casefold()
+
+        if (
+            not scene_key
+            or not isinstance(
+                image_map,
+                dict
+            )
+        ):
+            continue
+
+        normalized_images = {}
+
+        for source_url, names in image_map.items():
+            source_key = str(
+                source_url or ""
+            ).strip()
+
+            if not source_key:
+                continue
+
+            normalized_names = []
+
+            for name in names or []:
+                value = str(
+                    name or ""
+                ).strip()
+
+                if value:
+                    normalized_names.append(
+                        value
+                    )
+
+            normalized_images[
+                source_key
+            ] = unique_names(
+                normalized_names
+            )
+
+        result[
+            scene_key
+        ] = normalized_images
+
+    return result
+
+
+def assigned_tag_names_for_image(
+    assignments,
+    scene_url,
+    source_url
+):
+    scene_key = str(
+        scene_url or ""
+    ).strip().casefold()
+
+    source_url = str(
+        source_url or ""
+    ).strip()
+
+    scene_map = assignments.get(
+        scene_key
+    ) or {}
+
+    if source_url in scene_map:
+        return scene_map[
+            source_url
+        ]
+
+    source_key = source_url.casefold()
+
+    for candidate_url, names in scene_map.items():
+        if str(
+            candidate_url or ""
+        ).casefold() == source_key:
+            return names
+
+    return []
+
+
 def resolve_entities_for_scene(
     stash,
     performer_name,
     details,
     approvals,
-    gender_mode="women"
+    gender_mode="women",
+    skip_performers=False,
+    skip_studio=False,
+    skip_tags=False
 ):
     create_performers = approved_set(
         approvals,
@@ -1947,147 +2192,255 @@ def resolve_entities_for_scene(
     )
 
     performer_ids = []
-    performer_names = performer_names_for_mode(
-        stash,
-        performer_name,
-        details.get("performers") or [],
-        gender_mode
-    )
 
-    for name in performer_names:
-        item = stash.find_performer(name)
+    if not skip_performers:
+        performer_names = performer_names_for_mode(
+            stash,
+            performer_name,
+            details.get("performers") or [],
+            gender_mode
+        )
 
-        if not item:
-            mapped_id = performer_aliases.get(
-                name.casefold()
+        for name in performer_names:
+            item = stash.find_performer(
+                name
             )
 
-            if mapped_id:
-                item = stash.add_performer_alias(
-                    mapped_id,
+            if not item:
+                mapped_id = performer_aliases.get(
+                    name.casefold()
+                )
+
+                if mapped_id:
+                    item = stash.add_performer_alias(
+                        mapped_id,
+                        name
+                    )
+
+                    if item:
+                        group = gender_group(
+                            item.get("gender")
+                        )
+
+                        allowed = (
+                            gender_mode == "women_first"
+                            or (
+                                gender_mode == "women"
+                                and group == "woman"
+                            )
+                            or (
+                                gender_mode == "men"
+                                and group == "man"
+                            )
+                        )
+
+                        if not allowed:
+                            log(
+                                "PPics: mapped performer '"
+                                + name
+                                + "' was skipped by the gender filter"
+                            )
+                            item = None
+                        else:
+                            log(
+                                "PPics: mapped performer '"
+                                + name
+                                + "' to existing performer '"
+                                + str(item.get("name"))
+                                + "' and added it as an alias"
+                            )
+
+            if (
+                not item
+                and name.casefold()
+                in create_performers
+            ):
+                item = stash.create_performer(
                     name
                 )
 
-                if item:
-                    group = gender_group(
-                        item.get("gender")
+                log(
+                    "PPics: created performer '"
+                    + name
+                    + "'"
+                )
+
+            if (
+                item
+                and item["id"]
+                not in performer_ids
+            ):
+                performer_ids.append(
+                    item["id"]
+                )
+
+    studio_id = None
+
+    if not skip_studio:
+        studio_name = str(
+            details.get("studio") or ""
+        ).strip()
+
+        if studio_name:
+            studio = stash.find_studio(
+                studio_name
+            )
+
+            if not studio:
+                mapped_id = studio_aliases.get(
+                    studio_name.casefold()
+                )
+
+                if mapped_id:
+                    studio = stash.add_studio_alias(
+                        mapped_id,
+                        studio_name
                     )
 
-                    allowed = (
-                        gender_mode == "women_first"
-                        or (
-                            gender_mode == "women"
-                            and group == "woman"
-                        )
-                        or (
-                            gender_mode == "men"
-                            and group == "man"
-                        )
-                    )
-
-                    if not allowed:
+                    if studio:
                         log(
-                            "PPics: mapped performer '"
-                            + name
-                            + "' was skipped by the gender filter"
-                        )
-                        item = None
-                    else:
-                        log(
-                            "PPics: mapped performer '"
-                            + name
-                            + "' to existing performer '"
-                            + str(item.get("name"))
+                            "PPics: mapped studio '"
+                            + studio_name
+                            + "' to existing studio '"
+                            + str(studio.get("name"))
                             + "' and added it as an alias"
                         )
 
-        if not item and name.casefold() in create_performers:
-            item = stash.create_performer(name)
-            log("PPics: created performer '" + name + "'")
-
-        if item and item["id"] not in performer_ids:
-            performer_ids.append(item["id"])
-
-    studio_id = None
-    studio_name = str(details.get("studio") or "").strip()
-
-    if studio_name:
-        studio = stash.find_studio(studio_name)
-
-        if not studio:
-            mapped_id = studio_aliases.get(
-                studio_name.casefold()
-            )
-
-            if mapped_id:
-                studio = stash.add_studio_alias(
-                    mapped_id,
+            if (
+                not studio
+                and studio_name.casefold()
+                in create_studios
+            ):
+                studio = stash.create_studio(
                     studio_name
                 )
 
-                if studio:
-                    log(
-                        "PPics: mapped studio '"
-                        + studio_name
-                        + "' to existing studio '"
-                        + str(studio.get("name"))
-                        + "' and added it as an alias"
-                    )
-
-        if not studio and studio_name.casefold() in create_studios:
-            studio = stash.create_studio(studio_name)
-            log("PPics: created studio '" + studio_name + "'")
-
-        if studio:
-            studio_id = studio["id"]
-
-    tag_ids = []
-    tag_names = unique_names(
-        [IMPORTER_TAG] + (details.get("tags") or [])
-    )
-
-    for name in tag_names:
-        tag = stash.find_tag(name)
-
-        if name == IMPORTER_TAG and not tag:
-            legacy = stash.find_tag(LEGACY_IMPORTER_TAG)
-
-            if legacy:
-                tag = stash.migrate_legacy_importer_tag()
                 log(
-                    "PPics: migrated legacy PPics tag to PornPics Importer"
+                    "PPics: created studio '"
+                    + studio_name
+                    + "'"
                 )
 
-        if not tag:
-            mapped_id = tag_aliases.get(name.casefold())
+            if studio:
+                studio_id = studio[
+                    "id"
+                ]
 
-            if mapped_id:
-                tag = stash.add_tag_alias(
-                    mapped_id,
+    importer_tag = stash.find_tag(
+        IMPORTER_TAG
+    )
+
+    if not importer_tag:
+        legacy = stash.find_tag(
+            LEGACY_IMPORTER_TAG
+        )
+
+        if legacy:
+            importer_tag = (
+                stash.migrate_legacy_importer_tag()
+            )
+
+            log(
+                "PPics: migrated legacy PPics tag to PornPics Importer"
+            )
+
+    if (
+        not importer_tag
+        and (
+            skip_tags
+            or IMPORTER_TAG.casefold()
+            in create_tags
+        )
+    ):
+        importer_tag = stash.create_tag(
+            IMPORTER_TAG
+        )
+
+        log(
+            "PPics: created internal PornPics Importer marker tag"
+        )
+
+    importer_tag_id = None
+
+    if importer_tag:
+        importer_tag_id = importer_tag.get(
+            "id"
+        )
+
+    gallery_tag_ids = []
+    scene_tag_ids_by_name = {}
+
+    if importer_tag_id:
+        gallery_tag_ids.append(
+            importer_tag_id
+        )
+
+    if not skip_tags:
+        for name in unique_names(
+            details.get("tags") or []
+        ):
+            tag = stash.find_tag(
+                name
+            )
+
+            if not tag:
+                mapped_id = tag_aliases.get(
+                    name.casefold()
+                )
+
+                if mapped_id:
+                    tag = stash.add_tag_alias(
+                        mapped_id,
+                        name
+                    )
+
+                    if tag:
+                        log(
+                            "PPics: mapped tag '"
+                            + name
+                            + "' to existing tag '"
+                            + str(tag.get("name"))
+                            + "' and added it as an alias"
+                        )
+
+            if (
+                not tag
+                and name.casefold()
+                in create_tags
+            ):
+                tag = stash.create_tag(
                     name
                 )
 
-                if tag:
-                    log(
-                        "PPics: mapped tag '"
-                        + name
-                        + "' to existing tag '"
-                        + str(tag.get("name"))
-                        + "' and added it as an alias"
-                    )
+                log(
+                    "PPics: created tag '"
+                    + name
+                    + "'"
+                )
 
-        if not tag and name.casefold() in create_tags:
-            tag = stash.create_tag(name)
-            log("PPics: created tag '" + name + "'")
+            if tag:
+                tag_id = tag.get(
+                    "id"
+                )
 
-        if tag and tag["id"] not in tag_ids:
-            tag_ids.append(tag["id"])
+                if tag_id:
+                    scene_tag_ids_by_name[
+                        name.casefold()
+                    ] = tag_id
+
+                    if tag_id not in gallery_tag_ids:
+                        gallery_tag_ids.append(
+                            tag_id
+                        )
 
     return {
         "performer_ids": performer_ids,
         "studio_id": studio_id,
-        "tag_ids": tag_ids
+        "tag_ids": gallery_tag_ids,
+        "importer_tag_id": importer_tag_id,
+        "scene_tag_ids_by_name": scene_tag_ids_by_name
     }
+
 
 
 def prepare_import(
@@ -2174,6 +2527,21 @@ def prepare_import(
     )
     organized = bool(
         approvals.get("organized")
+    )
+
+    tag_mode = normalized_tag_mode(
+        approvals
+    )
+
+    if environment.get(
+        "skip_tags"
+    ):
+        tag_mode = "none"
+
+    image_tag_assignments = (
+        normalized_image_tag_assignments(
+            approvals
+        )
     )
 
     try:
@@ -2469,8 +2837,88 @@ def prepare_import(
             performer_name,
             scene["details"],
             approvals,
-            gender_mode=environment.get("gender_mode") or "women"
+            gender_mode=environment.get("gender_mode") or "women",
+            skip_performers=bool(
+                environment.get(
+                    "skip_performers"
+                )
+            ),
+            skip_studio=bool(
+                environment.get(
+                    "skip_studio"
+                )
+            ),
+            skip_tags=bool(
+                environment.get(
+                    "skip_tags"
+                )
+                or tag_mode == "none"
+            )
         )
+
+        for entry in scene.get("images") or []:
+            image_tag_ids = []
+
+            importer_tag_id = metadata.get(
+                "importer_tag_id"
+            )
+
+            if importer_tag_id:
+                image_tag_ids.append(
+                    importer_tag_id
+                )
+
+            if (
+                not environment.get(
+                    "skip_tags"
+                )
+                and tag_mode != "none"
+            ):
+                assigned_names = []
+
+                if tag_mode == "all":
+                    assigned_names = (
+                        scene.get(
+                            "details"
+                        )
+                        or {}
+                    ).get(
+                        "tags"
+                    ) or []
+
+                if tag_mode == "custom":
+                    assigned_names = (
+                        assigned_tag_names_for_image(
+                            image_tag_assignments,
+                            scene.get("url"),
+                            entry.get("source_url")
+                        )
+                    )
+
+                tag_map = (
+                    metadata.get(
+                        "scene_tag_ids_by_name"
+                    )
+                    or {}
+                )
+
+                for name in assigned_names:
+                    tag_id = tag_map.get(
+                        str(
+                            name or ""
+                        ).strip().casefold()
+                    )
+
+                    if (
+                        tag_id
+                        and tag_id
+                        not in image_tag_ids
+                    ):
+                        image_tag_ids.append(
+                            tag_id
+                        )
+
+            entry["tag_ids"] = image_tag_ids
 
         scene["metadata"] = metadata
         existing_gallery = stash.find_gallery_by_url(
@@ -2537,6 +2985,7 @@ def prepare_import(
         "output_path": str(output_root),
         "created_at": time.time(),
         "organized": organized,
+        "tag_mode": tag_mode,
         "scenes": manifest_scenes
     }
 
@@ -2824,7 +3273,7 @@ def finalize_import(stash, import_id, request_id=None):
                     source_url=source_url,
                     performer_ids=metadata.get("performer_ids") or [],
                     studio_id=metadata.get("studio_id"),
-                    tag_ids=metadata.get("tag_ids") or [],
+                    tag_ids=entry.get("tag_ids") or [],
                     gallery_id=gallery_id,
                     organized=organized
                 )
