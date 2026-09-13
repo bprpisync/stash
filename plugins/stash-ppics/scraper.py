@@ -509,11 +509,19 @@ class PPics:
             ssl._create_unverified_context()
         )
 
-    def fetch(self, url, headers=None):
-        request_headers = dict(self.headers)
+    def fetch_page(
+        self,
+        url,
+        headers=None
+    ):
+        request_headers = dict(
+            self.headers
+        )
 
         if headers:
-            request_headers.update(headers)
+            request_headers.update(
+                headers
+            )
 
         req = Request(
             url,
@@ -525,10 +533,77 @@ class PPics:
             context=self.ssl_context,
             timeout=30
         ) as response:
-            return response.read().decode(
+            html = response.read().decode(
                 "utf-8",
                 errors="ignore"
             )
+
+            final_url = str(
+                response.geturl()
+                or url
+            )
+
+        return html, final_url
+
+    def fetch(
+        self,
+        url,
+        headers=None
+    ):
+        html, final_url = self.fetch_page(
+            url,
+            headers=headers
+        )
+
+        return html
+
+    def is_age_verification_page(
+        self,
+        html,
+        final_url=""
+    ):
+        text = str(
+            html or ""
+        ).casefold()
+
+        url_text = str(
+            final_url or ""
+        ).casefold()
+
+        strong_markers = (
+            "age verification",
+            "verify your age",
+            "age assurance",
+            "age estimation",
+            "age-verification",
+            "age_verification",
+            "age verification required",
+            "prove your age",
+            "confirm your age",
+            "agechecked",
+            "agecheck.com",
+            "yoti",
+            "veriff"
+        )
+
+        for marker in strong_markers:
+            if marker in text:
+                return True
+
+        redirect_markers = (
+            "age-verification",
+            "age_verification",
+            "verify-age",
+            "verify_age",
+            "age-check",
+            "agecheck"
+        )
+
+        for marker in redirect_markers:
+            if marker in url_text:
+                return True
+
+        return False
 
     def fetch_json(self, url, params, referer):
         query = urlencode(params)
@@ -2462,7 +2537,7 @@ class PPics:
         )
 
         try:
-            html = self.fetch(
+            html, final_url = self.fetch_page(
                 scene_url
             )
         except Exception as error:
@@ -2472,9 +2547,40 @@ class PPics:
             )
             return None
 
-        return self.parse_gallery_html(
+        if self.is_age_verification_page(
+            html,
+            final_url
+        ):
+            return {
+                "title":
+                    self._direct_url_slug_label(
+                        scene_url
+                    ),
+                "studio":
+                    None,
+                "date":
+                    None,
+                "performers":
+                    [],
+                "images":
+                    [],
+                "tags":
+                    [],
+                "age_verification_required":
+                    True,
+                "age_verification_url":
+                    final_url
+            }
+
+        result = self.parse_gallery_html(
             html
         )
+
+        result[
+            "age_verification_required"
+        ] = False
+
+        return result
 
 
 if __name__ == "__main__":

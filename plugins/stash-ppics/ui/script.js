@@ -1,4 +1,4 @@
-const pp_VERSION = "v2.0";
+const pp_VERSION = "v2.1";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -1782,17 +1782,6 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         true
     );
 
-    window.addEventListener(
-        "error",
-        globalWindowErrorHandler,
-        true
-    );
-
-    window.addEventListener(
-        "unhandledrejection",
-        globalPromiseErrorHandler
-    );
-
     document.addEventListener(
         "click",
         function (event) {
@@ -2733,6 +2722,101 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         return data.scene;
     }
 
+    function refreshVisibleSceneCount() {
+        const counter =
+            document.querySelector(
+                "[data-ppics-visible-scene-count]"
+            );
+
+        if (!counter) {
+            return;
+        }
+
+        const visibleCards =
+            document.querySelectorAll(
+                ".ppics-grid .ppics-card"
+            ).length;
+
+        counter.textContent =
+            String(
+                visibleCards
+            );
+    }
+
+    function hideAgeVerificationSceneCard(
+        scene
+    ) {
+        const card =
+            document.querySelector(
+                '.ppics-card[data-scene-id="' +
+                CSS.escape(
+                    String(scene.id)
+                ) +
+                '"]'
+            );
+
+        if (!card) {
+            return;
+        }
+
+        card.classList.add(
+            "ppics-age-verification-hidden"
+        );
+
+        window.setTimeout(
+            function () {
+                if (card.isConnected) {
+                    card.remove();
+                }
+
+                refreshVisibleSceneCount();
+                refreshMasonryLayout();
+            },
+            190
+        );
+    }
+
+    function markAgeVerificationSceneCard(
+        scene
+    ) {
+        const card =
+            document.querySelector(
+                '.ppics-card[data-scene-id="' +
+                CSS.escape(
+                    String(scene.id)
+                ) +
+                '"]'
+            );
+
+        if (!card) {
+            return;
+        }
+
+        card.classList.add(
+            "ppics-age-verification-card"
+        );
+
+        const meta =
+            card.querySelector(
+                ".ppics-card-meta"
+            );
+
+        if (meta) {
+            meta.innerHTML = `
+                <div class="ppics-age-verification-note">
+                    <strong>Age verification required</strong>
+                    <span>
+                        PornPics is age-gating this gallery for the current server location.
+                    </span>
+                </div>
+            `;
+        }
+
+        updateMasonryCard(
+            card
+        );
+    }
+
     function updateSceneCardMetadata(scene, details) {
         const card = document.querySelector(
             '.ppics-card[data-scene-id="' +
@@ -2893,10 +2977,18 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         metadataQueueActive = 0;
     }
 
-    function queueSceneMetadata(scene, token) {
+    function queueSceneMetadata(
+        scene,
+        token,
+        hideAgeVerificationScenes
+    ) {
         metadataQueue.push({
             scene: scene,
-            token: token
+            token: token,
+            hideAgeVerificationScenes:
+                Boolean(
+                    hideAgeVerificationScenes
+                )
         });
 
         runMetadataQueue();
@@ -2916,6 +3008,24 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                         item.token !==
                         metadataHydrationToken
                     ) {
+                        return;
+                    }
+
+                    if (
+                        details.age_verification_required
+                    ) {
+                        if (
+                            item.hideAgeVerificationScenes
+                        ) {
+                            hideAgeVerificationSceneCard(
+                                item.scene
+                            );
+                        } else {
+                            markAgeVerificationSceneCard(
+                                item.scene
+                            );
+                        }
+
                         return;
                     }
 
@@ -2997,13 +3107,30 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         });
 
         if (
+            data.hide_age_verification_scenes
+        ) {
+            scenes.forEach(function (scene) {
+                queueSceneMetadata(
+                    scene,
+                    token,
+                    true
+                );
+            });
+
+            return;
+        }
+
+        if (
             typeof window.IntersectionObserver !==
             "function"
         ) {
             scenes.forEach(function (scene) {
                 queueSceneMetadata(
                     scene,
-                    token
+                    token,
+                    Boolean(
+                        data.hide_age_verification_scenes
+                    )
                 );
             });
 
@@ -3345,7 +3472,10 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                             </span>
 
                             <span>
-                                ${escapeHtml(data.count)} scenes shown${totalText}
+                                <span data-ppics-visible-scene-count>
+                                    ${escapeHtml(data.count)}
+                                </span>
+                                scenes shown${totalText}
                             </span>
                         </div>
                     </div>
@@ -3720,7 +3850,119 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         `;
     }
 
+    function renderAgeVerificationScene(
+        scene,
+        addHistory
+    ) {
+        stopLoadingSequence();
+        currentSceneData =
+            scene;
+
+        let hiddenNote = "";
+
+        if (
+            scene.hide_age_verification_scenes
+        ) {
+            hiddenNote = `
+                <div class="alert alert-secondary ppics-soft-alert">
+                    This gallery is normally hidden because
+                    <strong>Hide age-verification scenes</strong>
+                    is enabled in PornPics Importer settings.
+                </div>
+            `;
+        }
+
+        let sourceButton = "";
+
+        if (scene.url) {
+            sourceButton = `
+                <a
+                    class="btn btn-secondary"
+                    href="${escapeHtml(scene.url)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Open on PornPics
+                </a>
+            `;
+        }
+
+        setContent(`
+            <div class="ppics-browser p-3">
+                <div class="ppics-state-card ppics-age-verification-view">
+                    <div class="ppics-state-icon">
+                        18+
+                    </div>
+
+                    <div>
+                        <div class="ppics-eyebrow">
+                            PornPics Importer
+                        </div>
+
+                        <h2>
+                            Age verification required
+                        </h2>
+
+                        <p>
+                            PornPics returned an age-verification page instead
+                            of the gallery for the location used by this Stash server.
+                        </p>
+
+                        ${hiddenNote}
+
+                        <div class="ppics-result-actions">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                id="ppics-age-verification-back"
+                            >
+                                Back
+                            </button>
+
+                            ${sourceButton}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const back =
+            document.getElementById(
+                "ppics-age-verification-back"
+            );
+
+        if (back) {
+            back.addEventListener(
+                "click",
+                function () {
+                    navigateInternal(
+                        -1
+                    );
+                }
+            );
+        }
+
+        if (addHistory !== false) {
+            recordView({
+                type: "scene",
+                scene: scene
+            });
+        }
+    }
+
     function renderScene(scene, addHistory) {
+        if (
+            scene
+            && scene.age_verification_required
+        ) {
+            renderAgeVerificationScene(
+                scene,
+                addHistory
+            );
+
+            return;
+        }
+
         stopLoadingSequence();
         metadataHydrationToken += 1;
         currentSceneData = scene;
@@ -10383,13 +10625,43 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         return fallback;
     }
 
-    function makeGlobalNavLink(
+    function nativeNavWrapperFor(
         target
     ) {
-        const link =
-            document.createElement(
-                "a"
+        if (!target) {
+            return null;
+        }
+
+        const rbWrapper =
+            target.closest(
+                "[data-rb-event-key]"
             );
+
+        if (rbWrapper) {
+            return rbWrapper;
+        }
+
+        const navLinkWrapper =
+            target.closest(
+                ".nav-link"
+            );
+
+        if (
+            navLinkWrapper
+            && navLinkWrapper !== target
+        ) {
+            return navLinkWrapper;
+        }
+
+        return target.parentElement;
+    }
+
+    function prepareNativePornPicsLink(
+        link
+    ) {
+        if (!link) {
+            return null;
+        }
 
         link.id =
             "ppics-main-nav-link";
@@ -10397,25 +10669,40 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         link.href =
             GLOBAL_SAFE_URL;
 
-        link.className =
-            (
-                target.className
-                || ""
-            )
-            + " ppics-main-nav-link";
-
-        link.textContent =
-            "PornPics";
-
-        link.setAttribute(
-            "role",
-            "button"
-        );
-
         link.setAttribute(
             "aria-label",
             "Open PornPics"
         );
+
+        link.removeAttribute(
+            "aria-current"
+        );
+
+        link.classList.remove(
+            "active"
+        );
+
+        const text =
+            link.querySelector(
+                "span"
+            );
+
+        if (text) {
+            text.textContent =
+                "PornPics";
+        } else {
+            const label =
+                document.createElement(
+                    "span"
+                );
+
+            label.textContent =
+                "PornPics";
+
+            link.appendChild(
+                label
+            );
+        }
 
         link.addEventListener(
             "click",
@@ -10428,6 +10715,78 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
 
         return link;
+    }
+
+    function makeGlobalNavItem(
+        target
+    ) {
+        const sourceWrapper =
+            nativeNavWrapperFor(
+                target
+            );
+
+        if (!sourceWrapper) {
+            return null;
+        }
+
+        const wrapper =
+            sourceWrapper.cloneNode(
+                true
+            );
+
+        wrapper.removeAttribute(
+            "id"
+        );
+
+        if (
+            wrapper.hasAttribute(
+                "data-rb-event-key"
+            )
+        ) {
+            wrapper.setAttribute(
+                "data-rb-event-key",
+                GLOBAL_SAFE_URL
+            );
+        }
+
+        wrapper.classList.remove(
+            "active"
+        );
+
+        let link = null;
+
+        if (
+            wrapper.matches(
+                "a[href]"
+            )
+        ) {
+            link =
+                wrapper;
+        } else {
+            link =
+                wrapper.querySelector(
+                    "a[href]"
+                );
+        }
+
+        if (!link) {
+            return null;
+        }
+
+        prepareNativePornPicsLink(
+            link
+        );
+
+        wrapper.setAttribute(
+            "data-ppics-native-nav-item",
+            "1"
+        );
+
+        return {
+            wrapper: wrapper,
+            link: link,
+            sourceWrapper: sourceWrapper
+        };
     }
 
     function injectGlobalNavLink() {
@@ -10450,63 +10809,22 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             return false;
         }
 
-        const link =
-            makeGlobalNavLink(
+        const item =
+            makeGlobalNavItem(
                 target
             );
 
-        const parent =
-            target.parentElement;
-
-        if (!parent) {
+        if (
+            !item
+            || !item.wrapper
+            || !item.sourceWrapper
+        ) {
             return false;
         }
 
-        const parentTag =
-            String(
-                parent.tagName || ""
-            ).toLowerCase();
-
-        const parentClasses =
-            String(
-                parent.className || ""
-            );
-
-        const wrappedNavItem =
-            (
-                parentTag === "li"
-                || parentClasses.indexOf(
-                    "nav-item"
-                ) >= 0
-            );
-
-        if (
-            wrappedNavItem
-            && parent.parentElement
-        ) {
-            const wrapper =
-                document.createElement(
-                    parentTag || "div"
-                );
-
-            wrapper.className =
-                parent.className || "";
-
-            wrapper.appendChild(
-                link
-            );
-
-            parent.insertAdjacentElement(
-                "afterend",
-                wrapper
-            );
-
-            return true;
-        }
-
-        target.insertAdjacentElement(
+        item.sourceWrapper.insertAdjacentElement(
             "afterend",
-            link
+            item.wrapper
         );
 
         return true;

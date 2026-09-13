@@ -1225,6 +1225,11 @@ def get_environment(stash):
             "skipPerformers",
             False
         ),
+        "hide_age_verification_scenes": boolean_setting(
+            settings,
+            "hideAgeVerificationScenes",
+            False
+        ),
         "image_library_paths": image_library_paths,
         "output_valid": output_valid,
         "create_galleries_from_folders": bool(
@@ -1411,6 +1416,11 @@ def search_performer(
         "count": len(scenes),
         "scene_per_page": per_page,
         "gender_mode": environment["gender_mode"],
+        "hide_age_verification_scenes": bool(
+            environment.get(
+                "hide_age_verification_scenes"
+            )
+        ),
         "page": result.get("page") or 1,
         "total_count": result.get("total_count"),
         "total_pages": result.get("total_pages"),
@@ -1551,6 +1561,11 @@ def search_context(
         "count": len(scenes),
         "scene_per_page": per_page,
         "gender_mode": environment["gender_mode"],
+        "hide_age_verification_scenes": bool(
+            environment.get(
+                "hide_age_verification_scenes"
+            )
+        ),
         "page": result.get("page") or 1,
         "total_count": result.get("total_count"),
         "total_pages": result.get("total_pages"),
@@ -1585,6 +1600,33 @@ def load_scene(pp, stash, scene_url, request_id=None):
     details["source_url"] = scene_url
 
     environment = get_environment(stash)
+
+    details[
+        "hide_age_verification_scenes"
+    ] = bool(
+        environment.get(
+            "hide_age_verification_scenes"
+        )
+    )
+
+    if details.get(
+        "age_verification_required"
+    ):
+        details[
+            "performer_meta"
+        ] = []
+
+        details[
+            "gender_mode"
+        ] = environment.get(
+            "gender_mode"
+        )
+
+        return {
+            "status": "ok",
+            "mode": "scene",
+            "scene": details
+        }
 
     write_progress(
         request_id,

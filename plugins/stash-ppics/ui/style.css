@@ -2417,11 +2417,6 @@
     opacity: 0.55;
 }
 
-.ppics-main-nav-icon {
-    margin-right: 0.3rem;
-    opacity: 0.75;
-}
-
 .ppics-result-actions {
     display: flex;
     align-items: center;
@@ -2456,25 +2451,6 @@
         width: 56px;
         height: 50px;
     }
-}
-
-
-/* v0.9.1 - native-looking PornPics main navigation item */
-#ppics-main-nav-link.ppics-main-nav-link {
-    align-items: center;
-    justify-content: center;
-    line-height: inherit;
-    vertical-align: middle;
-    white-space: nowrap;
-    text-decoration: none;
-}
-
-#ppics-main-nav-link.ppics-main-nav-link:focus {
-    outline: none;
-}
-
-.ppics-main-nav-icon {
-    display: none !important;
 }
 
 
@@ -3848,4 +3824,55 @@
         opacity: 1;
         transform: none;
     }
+}
+
+
+.ppics-age-verification-hidden {
+    opacity: 0 !important;
+    transform: scale(0.96) translateY(-6px) !important;
+    pointer-events: none;
+    transition:
+        opacity 170ms ease,
+        transform 170ms ease !important;
+}
+
+.ppics-age-verification-card {
+    border-color: rgba(214, 157, 72, 0.22);
+}
+
+.ppics-age-verification-note {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0.5rem;
+    background: rgba(172, 116, 42, 0.1);
+}
+
+.ppics-age-verification-note strong {
+    font-size: 0.76rem;
+}
+
+.ppics-age-verification-note span {
+    font-size: 0.7rem;
+    line-height: 1.35;
+    opacity: 0.68;
+}
+
+.ppics-age-verification-view .ppics-state-icon {
+    width: 58px;
+    min-width: 58px;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+
+
+
+/* v2.1 - native Stash navbar clone
+   PornPics now reuses the complete HTML/classes/icon of a built-in Stash
+   navbar item, so spacing is controlled entirely by Stash itself. */
+
+[data-ppics-native-nav-item="1"] {
+    box-sizing: border-box;
 }

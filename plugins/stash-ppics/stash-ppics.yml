@@ -1,6 +1,6 @@
 name: PornPics Importer
 description: Browse, review and import full-size PornPics images into Stash.
-version: 2.0
+version: 2.1
 
 exec:
   - python
@@ -38,6 +38,11 @@ settings:
   skipPerformers:
     displayName: Skip performers
     description: Do not import PornPics performer metadata.
+    type: BOOLEAN
+
+  hideAgeVerificationScenes:
+    displayName: Hide age-verification scenes
+    description: Hide PornPics scenes when the gallery request is replaced by a regional age-verification page. Off by default.
     type: BOOLEAN
 
 tasks:
