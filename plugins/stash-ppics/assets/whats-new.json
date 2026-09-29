@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "version": "v2.3",
+  "title": "What's new in v2.3",
+  "intro": "PornPics Importer has been updated.",
+  "items": [
+    "Just like selecting tags per image, you're now also able to select performers per image!",
+    "Fixed an issue where for some scenes, no performer name/data could be scraped; resulting in a bugged performer selection.",
+    "Fixed an error that was popping up on fresh installs of the plugin. A folder was not available where the whole scraping system was built on. (fixed!)",
+    "Updated the UI of the tag selectior (per tag)",
+    "Added a What's New popup.",
+    ""
+  ],
+  "footer": "Thank you for your support! If you have any ideas for future updates or if you found bugs, report them here: https://discourse.stashapp.cc/t/pornpics-importer/13625"
+}

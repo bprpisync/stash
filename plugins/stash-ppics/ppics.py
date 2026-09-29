@@ -189,6 +189,9 @@ def clear_cache_files():
         if not path.is_file():
             continue
 
+        if path.name.startswith("."):
+            continue
+
         try:
             path.unlink()
             removed += 1
@@ -1901,16 +1904,22 @@ def preflight_import(
     for index, scene in enumerate(scenes, start=1):
         details = scene["details"]
 
+        scene_performer_names = []
+
         if not environment.get(
             "skip_performers"
         ):
-            performer_names.extend(
+            scene_performer_names = (
                 performer_names_for_mode(
                     stash,
                     performer_name,
                     details.get("performers") or [],
                     environment.get("gender_mode") or "women"
                 )
+            )
+
+            performer_names.extend(
+                scene_performer_names
             )
 
         if (
@@ -1964,7 +1973,7 @@ def preflight_import(
             "selected_images": selected_images,
             "studio": details.get("studio"),
             "performers": unique_names(
-                details.get("performers") or []
+                scene_performer_names
             ),
             "tags": unique_names(
                 [IMPORTER_TAG] + (details.get("tags") or [])
@@ -2101,11 +2110,15 @@ def normalized_tag_mode(
     return mode
 
 
-def normalized_image_tag_assignments(
-    options
+def normalized_image_name_assignments(
+    options,
+    key
 ):
-    raw = options.get(
-        "image_tag_assignments"
+    raw = (
+        options
+        or {}
+    ).get(
+        key
     ) or {}
 
     result = {}
@@ -2165,7 +2178,25 @@ def normalized_image_tag_assignments(
     return result
 
 
-def assigned_tag_names_for_image(
+def normalized_image_tag_assignments(
+    options
+):
+    return normalized_image_name_assignments(
+        options,
+        "image_tag_assignments"
+    )
+
+
+def normalized_image_performer_assignments(
+    options
+):
+    return normalized_image_name_assignments(
+        options,
+        "image_performer_assignments"
+    )
+
+
+def assigned_names_for_image(
     assignments,
     scene_url,
     source_url
@@ -2196,6 +2227,31 @@ def assigned_tag_names_for_image(
             return names
 
     return []
+
+
+def assigned_tag_names_for_image(
+    assignments,
+    scene_url,
+    source_url
+):
+    return assigned_names_for_image(
+        assignments,
+        scene_url,
+        source_url
+    )
+
+
+def assigned_performer_names_for_image(
+    assignments,
+    scene_url,
+    source_url
+):
+    return assigned_names_for_image(
+        assignments,
+        scene_url,
+        source_url
+    )
+
 
 
 def resolve_entities_for_scene(
@@ -2234,6 +2290,7 @@ def resolve_entities_for_scene(
     )
 
     performer_ids = []
+    scene_performer_ids_by_name = {}
 
     if not skip_performers:
         performer_names = performer_names_for_mode(
@@ -2307,14 +2364,20 @@ def resolve_entities_for_scene(
                     + "'"
                 )
 
-            if (
-                item
-                and item["id"]
-                not in performer_ids
-            ):
-                performer_ids.append(
-                    item["id"]
+            if item:
+                performer_id = item.get(
+                    "id"
                 )
+
+                if performer_id:
+                    scene_performer_ids_by_name[
+                        name.casefold()
+                    ] = performer_id
+
+                    if performer_id not in performer_ids:
+                        performer_ids.append(
+                            performer_id
+                        )
 
     studio_id = None
 
@@ -2477,6 +2540,8 @@ def resolve_entities_for_scene(
 
     return {
         "performer_ids": performer_ids,
+        "scene_performer_ids_by_name":
+            scene_performer_ids_by_name,
         "studio_id": studio_id,
         "tag_ids": gallery_tag_ids,
         "importer_tag_id": importer_tag_id,
@@ -2582,6 +2647,12 @@ def prepare_import(
 
     image_tag_assignments = (
         normalized_image_tag_assignments(
+            approvals
+        )
+    )
+
+    image_performer_assignments = (
+        normalized_image_performer_assignments(
             approvals
         )
     )
@@ -2900,6 +2971,41 @@ def prepare_import(
 
         for entry in scene.get("images") or []:
             image_tag_ids = []
+            image_performer_ids = []
+
+            if not environment.get(
+                "skip_performers"
+            ):
+                assigned_performer_names = (
+                    assigned_performer_names_for_image(
+                        image_performer_assignments,
+                        scene.get("url"),
+                        entry.get("source_url")
+                    )
+                )
+
+                performer_map = (
+                    metadata.get(
+                        "scene_performer_ids_by_name"
+                    )
+                    or {}
+                )
+
+                for name in assigned_performer_names:
+                    performer_id = performer_map.get(
+                        str(
+                            name or ""
+                        ).strip().casefold()
+                    )
+
+                    if (
+                        performer_id
+                        and performer_id
+                        not in image_performer_ids
+                    ):
+                        image_performer_ids.append(
+                            performer_id
+                        )
 
             importer_tag_id = metadata.get(
                 "importer_tag_id"
@@ -2960,7 +3066,13 @@ def prepare_import(
                             tag_id
                         )
 
-            entry["tag_ids"] = image_tag_ids
+            entry[
+                "tag_ids"
+            ] = image_tag_ids
+
+            entry[
+                "performer_ids"
+            ] = image_performer_ids
 
         scene["metadata"] = metadata
         existing_gallery = stash.find_gallery_by_url(
@@ -3313,7 +3425,7 @@ def finalize_import(stash, import_id, request_id=None):
                 result = stash.update_image_metadata(
                     image=image,
                     source_url=source_url,
-                    performer_ids=metadata.get("performer_ids") or [],
+                    performer_ids=entry.get("performer_ids") or [],
                     studio_id=metadata.get("studio_id"),
                     tag_ids=entry.get("tag_ids") or [],
                     gallery_id=gallery_id,
@@ -3536,6 +3648,29 @@ def main():
         raise ValueError(
             "No server_connection was received from Stash."
         )
+
+    try:
+        write_cache(
+            request_id,
+            {
+                "status": "pending",
+                "mode": mode,
+                "started_at": time.time()
+            }
+        )
+
+        write_progress(
+            request_id,
+            "starting",
+            "Starting PornPics task",
+            detail="Preparing the plugin request"
+        )
+
+    except Exception as error:
+        raise RuntimeError(
+            "PornPics Importer could not initialize its runtime cache: "
+            + str(error)
+        ) from error
 
     cleanup_old_files(CACHE_DIR, 3600)
     cleanup_old_files(STATE_DIR, 86400)

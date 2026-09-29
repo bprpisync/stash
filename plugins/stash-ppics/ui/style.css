@@ -3876,3 +3876,407 @@
 [data-ppics-native-nav-item="1"] {
     box-sizing: border-box;
 }
+
+
+/* v2.2 - per-image tags and performers */
+
+.ppics-image-metadata-review {
+    display: grid;
+    gap: 1rem;
+}
+
+.ppics-image-meta-matrix {
+    min-width: 0;
+    padding: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.085);
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.ppics-image-meta-matrix-heading {
+    margin-bottom: 0.7rem;
+}
+
+.ppics-image-meta-matrix-heading h4 {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.ppics-image-meta-matrix-heading p {
+    max-width: 900px;
+    margin: 0.22rem 0 0;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    opacity: 0.66;
+}
+
+.ppics-image-meta-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.58rem;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.ppics-image-meta-table {
+    width: 100%;
+    min-width: max-content;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.ppics-image-meta-table th,
+.ppics-image-meta-table td {
+    border-right: 1px solid rgba(255, 255, 255, 0.065);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.ppics-image-meta-table tr:last-child > * {
+    border-bottom: 0;
+}
+
+.ppics-image-meta-table tr > *:last-child {
+    border-right: 0;
+}
+
+.ppics-image-meta-image-header {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    width: 130px;
+    min-width: 130px;
+    padding: 0.65rem;
+    background: rgba(25, 25, 28, 0.98);
+    text-align: left;
+    font-size: 0.73rem;
+}
+
+.ppics-image-meta-column {
+    min-width: 150px;
+    max-width: 210px;
+    padding: 0.55rem;
+    background: rgba(25, 25, 28, 0.96);
+    vertical-align: top;
+}
+
+.ppics-image-meta-column-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+}
+
+.ppics-image-meta-column-head strong {
+    overflow-wrap: anywhere;
+    font-size: 0.75rem;
+}
+
+.ppics-image-meta-column-status {
+    min-height: 1.8em;
+    font-size: 0.61rem;
+    line-height: 1.3;
+    opacity: 0.58;
+}
+
+.ppics-image-meta-select-all {
+    width: 100%;
+    min-height: 30px;
+    margin-top: 0.18rem;
+    font-size: 0.67rem;
+}
+
+.ppics-image-meta-column-unavailable {
+    opacity: 0.45;
+}
+
+.ppics-image-meta-image-cell {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    width: 130px;
+    min-width: 130px;
+    padding: 0.4rem;
+    background: rgba(21, 21, 24, 0.985);
+}
+
+.ppics-image-meta-preview {
+    position: relative;
+    width: 100%;
+    height: 78px;
+    display: block;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    border-radius: 0.42rem;
+    background: rgba(0, 0, 0, 0.25);
+    color: inherit;
+    cursor: zoom-in;
+}
+
+.ppics-image-meta-preview img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    transition: transform 130ms ease;
+}
+
+.ppics-image-meta-preview:hover img {
+    transform: scale(1.035);
+}
+
+.ppics-image-meta-preview > span {
+    position: absolute;
+    left: 0.3rem;
+    bottom: 0.3rem;
+    padding: 0.12rem 0.3rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.74);
+    font-size: 0.61rem;
+}
+
+.ppics-image-meta-preview > b {
+    position: absolute;
+    top: 0.28rem;
+    right: 0.28rem;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.72);
+    font-size: 0.68rem;
+}
+
+.ppics-image-meta-cell {
+    padding: 0.45rem;
+    text-align: center;
+    vertical-align: middle;
+    background: rgba(255, 255, 255, 0.012);
+}
+
+.ppics-image-meta-check {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    cursor: pointer;
+}
+
+.ppics-image-meta-check input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ppics-image-meta-check > span {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.42rem;
+    background: rgba(255, 255, 255, 0.035);
+    opacity: 0.38;
+    transition:
+        opacity 120ms ease,
+        border-color 120ms ease,
+        background 120ms ease,
+        transform 120ms ease;
+}
+
+.ppics-image-meta-check:hover > span {
+    opacity: 0.72;
+    transform: scale(1.04);
+}
+
+.ppics-image-meta-check input:checked + span {
+    border-color: rgba(86, 164, 113, 0.65);
+    background: rgba(49, 118, 73, 0.3);
+    opacity: 1;
+}
+
+.ppics-image-meta-check input:disabled + span {
+    cursor: not-allowed;
+    opacity: 0.14;
+}
+
+.ppics-image-meta-empty {
+    padding: 0.75rem;
+    border: 1px dashed rgba(255, 255, 255, 0.09);
+    border-radius: 0.58rem;
+    opacity: 0.62;
+}
+
+@media (max-width: 700px) {
+    .ppics-image-meta-image-header,
+    .ppics-image-meta-image-cell {
+        width: 104px;
+        min-width: 104px;
+    }
+
+    .ppics-image-meta-column {
+        min-width: 138px;
+    }
+
+    .ppics-image-meta-preview {
+        height: 68px;
+    }
+}
+
+
+/* v2.3 - What's New popup */
+
+.ppics-whats-new {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(7px);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        opacity 180ms ease,
+        visibility 180ms ease;
+}
+
+.ppics-whats-new-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.ppics-whats-new-leaving {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.ppics-whats-new-card {
+    position: relative;
+    width: min(560px, 100%);
+    max-height: min(720px, calc(100vh - 2.5rem));
+    overflow-y: auto;
+    padding: 1.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.9rem;
+    background:
+        linear-gradient(
+            155deg,
+            rgba(38, 28, 31, 0.985),
+            rgba(20, 19, 22, 0.985)
+        );
+    box-shadow:
+        0 28px 90px rgba(0, 0, 0, 0.46);
+    transform: translateY(12px) scale(0.985);
+    transition:
+        transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ppics-whats-new-visible .ppics-whats-new-card {
+    transform: translateY(0) scale(1);
+}
+
+.ppics-whats-new-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.045);
+    color: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.ppics-whats-new-close:hover {
+    background: rgba(255, 255, 255, 0.085);
+}
+
+.ppics-whats-new-eyebrow {
+    margin-bottom: 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.5;
+}
+
+.ppics-whats-new-card h2 {
+    margin: 0;
+    padding-right: 2.4rem;
+    font-size: 1.45rem;
+}
+
+.ppics-whats-new-intro,
+.ppics-whats-new-body {
+    margin: 0.8rem 0 0;
+    line-height: 1.55;
+    opacity: 0.8;
+}
+
+.ppics-whats-new-list {
+    display: grid;
+    gap: 0.55rem;
+    margin: 1rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.ppics-whats-new-list li {
+    padding-left: 0.15rem;
+    line-height: 1.45;
+}
+
+.ppics-whats-new-footer-note {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    opacity: 0.68;
+}
+
+.ppics-whats-new-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.2rem;
+}
+
+@media (max-width: 600px) {
+    .ppics-whats-new {
+        align-items: flex-end;
+        padding: 0.75rem;
+    }
+
+    .ppics-whats-new-card {
+        width: 100%;
+        max-height: calc(100vh - 1.5rem);
+        padding: 1.2rem;
+        border-radius: 0.9rem;
+    }
+
+    .ppics-whats-new-actions .btn {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ppics-whats-new,
+    .ppics-whats-new-card {
+        transition: none !important;
+    }
+}

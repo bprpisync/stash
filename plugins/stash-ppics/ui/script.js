@@ -1,4 +1,4 @@
-const pp_VERSION = "v2.1";
+const pp_VERSION = "v2.3";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -6,6 +6,13 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     const PLUGIN_ID = "stash-ppics";
     const TASK_NAME = "Open PornPics";
     const CACHE_BASE = "/plugin/" + PLUGIN_ID + "/assets/cache";
+    const WHATS_NEW_URL =
+        "/plugin/"
+        + PLUGIN_ID
+        + "/assets/whats-new.json";
+
+    const WHATS_NEW_SEEN_KEY =
+        "pornpics-importer-whats-new-last-seen";
     const SELECTION_STORAGE_PREFIX = "pornpics-importer-selection:";
     const SESSION_RESET_TOKEN_KEY = "pornpics-importer-session-reset-token";
     const GLOBAL_ROUTE_PATH = "/plugin/pornpics";
@@ -58,6 +65,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     let splashLeaveTimer = null;
     let splashRemoveTimer = null;
     let viewAnimationTimer = null;
+    let whatsNewCheckedThisPage = false;
+    let whatsNewRuntimeSeen = "";
+    let whatsNewTimer = null;
 
     const viewHistory = [];
     let viewHistoryIndex = -1;
@@ -177,60 +187,177 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
     }
 
-    async function waitForCache(requestId, timeoutMs, onProgress) {
+    async function waitForCache(
+        requestId,
+        timeoutMs,
+        onProgress,
+        jobId
+    ) {
         if (!timeoutMs) {
             timeoutMs = 1800000;
         }
 
-        const started = Date.now();
+        const started =
+            Date.now();
+
         let lastProgressSignature = "";
+        let lastJobCheckAt = 0;
+        let jobFinishedAt = 0;
 
-        while (Date.now() - started < timeoutMs) {
+        while (
+            Date.now() - started <
+            timeoutMs
+        ) {
             const finalUrl =
-                CACHE_BASE +
-                "/" +
-                encodeURIComponent(requestId) +
-                ".json";
+                CACHE_BASE
+                + "/"
+                + encodeURIComponent(
+                    requestId
+                )
+                + ".json";
 
-            const finalData = await fetchCacheFile(finalUrl);
+            const finalData =
+                await fetchCacheFile(
+                    finalUrl
+                );
 
             if (finalData) {
                 handleSessionResetToken(
                     finalData.session_reset_token
                 );
 
-                if (finalData.status === "error") {
+                if (
+                    finalData.status ===
+                    "error"
+                ) {
                     throw new Error(
-                        finalData.error ||
-                        "PornPics task failed."
+                        finalData.error
+                        || "PornPics task failed."
                     );
                 }
 
-                return finalData;
+                if (
+                    finalData.status !==
+                    "pending"
+                ) {
+                    return finalData;
+                }
             }
 
-            if (typeof onProgress === "function") {
-                const progressUrl =
-                    CACHE_BASE +
-                    "/" +
-                    encodeURIComponent(requestId) +
-                    ".progress.json";
+            if (
+                jobId
+                && (
+                    Date.now()
+                    - lastJobCheckAt
+                    >= 1000
+                )
+            ) {
+                lastJobCheckAt =
+                    Date.now();
 
-                const progress = await fetchCacheFile(progressUrl);
+                try {
+                    const job =
+                        await queryJob(
+                            jobId
+                        );
 
-                if (progress) {
-                    const signature = JSON.stringify(progress);
+                    if (job) {
+                        if (
+                            job.status ===
+                            "FAILED"
+                            || job.status ===
+                            "CANCELLED"
+                        ) {
+                            throw new Error(
+                                job.error
+                                || "The PornPics plugin task did not finish successfully."
+                            );
+                        }
 
-                    if (signature !== lastProgressSignature) {
-                        lastProgressSignature = signature;
-                        onProgress(progress);
+                        if (
+                            job.status ===
+                            "FINISHED"
+                        ) {
+                            if (!jobFinishedAt) {
+                                jobFinishedAt =
+                                    Date.now();
+                            }
+
+                            if (
+                                Date.now()
+                                - jobFinishedAt
+                                >= 4000
+                            ) {
+                                throw new Error(
+                                    "The PornPics task finished, but its result file could not be read. "
+                                    + "Reload Plugins and make sure the plugin assets folder is installed."
+                                );
+                            }
+                        }
+                    }
+                } catch (error) {
+                    if (
+                        error
+                        && error.message
+                        && error.message.indexOf(
+                            "findJob"
+                        ) >= 0
+                    ) {
+                        console.warn(
+                            "PornPics job status check failed",
+                            error
+                        );
+                    } else {
+                        throw error;
                     }
                 }
             }
 
-            await new Promise(function (resolve) {
-                setTimeout(resolve, 500);
-            });
+            if (
+                typeof onProgress ===
+                "function"
+            ) {
+                const progressUrl =
+                    CACHE_BASE
+                    + "/"
+                    + encodeURIComponent(
+                        requestId
+                    )
+                    + ".progress.json";
+
+                const progress =
+                    await fetchCacheFile(
+                        progressUrl
+                    );
+
+                if (progress) {
+                    const signature =
+                        JSON.stringify(
+                            progress
+                        );
+
+                    if (
+                        signature !==
+                        lastProgressSignature
+                    ) {
+                        lastProgressSignature =
+                            signature;
+
+                        onProgress(
+                            progress
+                        );
+                    }
+                }
+            }
+
+            await new Promise(
+                function (resolve) {
+                    setTimeout(
+                        resolve,
+                        650
+                    );
+                }
+            );
         }
 
         throw new Error(
@@ -418,22 +545,47 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
     }
 
-    async function requestData(args, onProgress, timeoutMs) {
-        const requestId = makeRequestId();
-        const taskArgs = Object.assign({}, args, {
-            request_id: requestId
-        });
+    async function requestData(
+        args,
+        onProgress,
+        timeoutMs
+    ) {
+        const requestId =
+            makeRequestId();
+
+        const taskArgs =
+            Object.assign(
+                {},
+                args,
+                {
+                    request_id:
+                        requestId
+                }
+            );
 
         if (!timeoutMs) {
             timeoutMs = 1800000;
         }
 
-        await runTask(taskArgs);
+        const jobId =
+            await runTask(
+                taskArgs
+            );
+
+        await new Promise(
+            function (resolve) {
+                setTimeout(
+                    resolve,
+                    300
+                );
+            }
+        );
 
         return waitForCache(
             requestId,
             timeoutMs,
-            onProgress
+            onProgress,
+            jobId
         );
     }
 
@@ -981,6 +1133,430 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
     }
 
+    function whatsNewSeenVersion() {
+        try {
+            return (
+                window.localStorage.getItem(
+                    WHATS_NEW_SEEN_KEY
+                )
+                || whatsNewRuntimeSeen
+                || ""
+            );
+        } catch (error) {
+            return (
+                whatsNewRuntimeSeen
+                || ""
+            );
+        }
+    }
+
+    function markWhatsNewSeen(
+        version
+    ) {
+        version = String(
+            version || ""
+        ).trim();
+
+        if (!version) {
+            return;
+        }
+
+        whatsNewRuntimeSeen =
+            version;
+
+        try {
+            window.localStorage.setItem(
+                WHATS_NEW_SEEN_KEY,
+                version
+            );
+        } catch (error) {
+            console.warn(
+                "PornPics What's New state could not be saved",
+                error
+            );
+        }
+    }
+
+    function closeWhatsNewPopup(
+        version
+    ) {
+        const popup =
+            document.getElementById(
+                "ppics-whats-new"
+            );
+
+        if (!popup) {
+            markWhatsNewSeen(
+                version
+            );
+            return;
+        }
+
+        markWhatsNewSeen(
+            version
+        );
+
+        popup.classList.add(
+            "ppics-whats-new-leaving"
+        );
+
+        window.setTimeout(
+            function () {
+                const current =
+                    document.getElementById(
+                        "ppics-whats-new"
+                    );
+
+                if (current) {
+                    current.remove();
+                }
+            },
+            180
+        );
+    }
+
+    function whatsNewItemsHtml(
+        items
+    ) {
+        if (!Array.isArray(items)) {
+            return "";
+        }
+
+        let html = "";
+
+        items.forEach(function (item) {
+            const text =
+                String(
+                    item || ""
+                ).trim();
+
+            if (!text) {
+                return;
+            }
+
+            html += `
+                <li>
+                    ${escapeHtml(text)}
+                </li>
+            `;
+        });
+
+        if (!html) {
+            return "";
+        }
+
+        return `
+            <ul class="ppics-whats-new-list">
+                ${html}
+            </ul>
+        `;
+    }
+
+    function showWhatsNewPopup(
+        config
+    ) {
+        if (
+            !config
+            || typeof config !==
+                "object"
+        ) {
+            return;
+        }
+
+        const version =
+            String(
+                config.version
+                || ""
+            ).trim();
+
+        if (
+            !version
+            || version !==
+                pp_VERSION
+        ) {
+            return;
+        }
+
+        if (
+            whatsNewSeenVersion()
+            === version
+        ) {
+            return;
+        }
+
+        const existing =
+            document.getElementById(
+                "ppics-whats-new"
+            );
+
+        if (existing) {
+            return;
+        }
+
+        const title =
+            String(
+                config.title
+                || (
+                    "What's new in "
+                    + version
+                )
+            ).trim();
+
+        const intro =
+            String(
+                config.intro
+                || ""
+            ).trim();
+
+        const body =
+            String(
+                config.body
+                || ""
+            ).trim();
+
+        const footer =
+            String(
+                config.footer
+                || ""
+            ).trim();
+
+        let introHtml = "";
+        let bodyHtml = "";
+        let footerHtml = "";
+
+        if (intro) {
+            introHtml = `
+                <p class="ppics-whats-new-intro">
+                    ${escapeHtml(intro)}
+                </p>
+            `;
+        }
+
+        if (body) {
+            bodyHtml = `
+                <p class="ppics-whats-new-body">
+                    ${escapeHtml(body)}
+                </p>
+            `;
+        }
+
+        if (footer) {
+            footerHtml = `
+                <div class="ppics-whats-new-footer-note">
+                    ${escapeHtml(footer)}
+                </div>
+            `;
+        }
+
+        const popup =
+            document.createElement(
+                "div"
+            );
+
+        popup.id =
+            "ppics-whats-new";
+
+        popup.className =
+            "ppics-whats-new";
+
+        popup.setAttribute(
+            "role",
+            "dialog"
+        );
+
+        popup.setAttribute(
+            "aria-modal",
+            "true"
+        );
+
+        popup.setAttribute(
+            "aria-label",
+            title
+        );
+
+        popup.innerHTML = `
+            <div class="ppics-whats-new-card">
+                <button
+                    type="button"
+                    class="ppics-whats-new-close"
+                    aria-label="Close"
+                >
+                    ×
+                </button>
+
+                <div class="ppics-whats-new-eyebrow">
+                    PornPics Importer
+                </div>
+
+                <h2>
+                    ${escapeHtml(title)}
+                </h2>
+
+                ${introHtml}
+                ${bodyHtml}
+                ${whatsNewItemsHtml(config.items)}
+                ${footerHtml}
+
+                <div class="ppics-whats-new-actions">
+                    <button
+                        type="button"
+                        class="btn btn-primary ppics-whats-new-confirm"
+                    >
+                        Got it
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(
+            popup
+        );
+
+        window.requestAnimationFrame(
+            function () {
+                popup.classList.add(
+                    "ppics-whats-new-visible"
+                );
+            }
+        );
+
+        function dismiss() {
+            closeWhatsNewPopup(
+                version
+            );
+        }
+
+        const closeButton =
+            popup.querySelector(
+                ".ppics-whats-new-close"
+            );
+
+        const confirmButton =
+            popup.querySelector(
+                ".ppics-whats-new-confirm"
+            );
+
+        if (closeButton) {
+            closeButton.addEventListener(
+                "click",
+                dismiss
+            );
+        }
+
+        if (confirmButton) {
+            confirmButton.addEventListener(
+                "click",
+                dismiss
+            );
+
+            confirmButton.focus();
+        }
+
+        popup.addEventListener(
+            "mousedown",
+            function (event) {
+                if (
+                    event.target ===
+                    popup
+                ) {
+                    dismiss();
+                }
+            }
+        );
+
+        function onKeyDown(
+            event
+        ) {
+            if (
+                event.key ===
+                "Escape"
+            ) {
+                document.removeEventListener(
+                    "keydown",
+                    onKeyDown,
+                    true
+                );
+
+                dismiss();
+            }
+        }
+
+        document.addEventListener(
+            "keydown",
+            onKeyDown,
+            true
+        );
+    }
+
+    async function checkWhatsNewPopup() {
+        if (whatsNewCheckedThisPage) {
+            return;
+        }
+
+        whatsNewCheckedThisPage =
+            true;
+
+        try {
+            const response =
+                await fetch(
+                    WHATS_NEW_URL,
+                    {
+                        cache:
+                            "no-store",
+                        credentials:
+                            "same-origin"
+                    }
+                );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const config =
+                await response.json();
+
+            if (
+                config
+                && config.enabled
+                    === false
+            ) {
+                return;
+            }
+
+            showWhatsNewPopup(
+                config
+            );
+        } catch (error) {
+            console.warn(
+                "PornPics What's New could not be loaded",
+                error
+            );
+        }
+    }
+
+    function scheduleWhatsNewPopup() {
+        if (whatsNewCheckedThisPage) {
+            return;
+        }
+
+        if (whatsNewTimer) {
+            window.clearTimeout(
+                whatsNewTimer
+            );
+        }
+
+        whatsNewTimer =
+            window.setTimeout(
+                function () {
+                    whatsNewTimer =
+                        null;
+
+                    checkWhatsNewPopup();
+                },
+                1350
+            );
+    }
+
     function showPornPicsSplashOnce() {
         if (splashShownThisPage) {
             return;
@@ -1069,6 +1645,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 splashLeaveTimer
             );
         }
+
+        scheduleWhatsNewPopup();
 
         splashLeaveTimer =
             window.setTimeout(
@@ -5680,182 +6258,22 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         return html;
     }
 
-    function sceneTagAssignmentHtml(
-        group,
-        scene
-    ) {
-        if (
-            !scene
-            || currentPreflight
-            && currentPreflight.skip_tags
-        ) {
-            return "";
-        }
-
-        const tags = Array.from(
-            scene.scene_tags || []
-        );
-
-        if (!tags.length) {
-            return `
-                <div class="ppics-image-tag-review ppics-image-tag-review-empty">
-                    <div class="ppics-review-control-label">
-                        Image tags
-                    </div>
-                    <div class="text-muted">
-                        PornPics did not provide scene tags for this gallery.
-                    </div>
-                </div>
-            `;
-        }
-
-        const images = Array.from(
-            scene.selected_images || []
-        );
-
-        if (!images.length) {
-            return "";
-        }
-
-        let galleryNote = `
-            PornPics provides these tags for the whole scene. They are not
-            added to individual images unless you choose them below.
-        `;
-
-        if (group.images.length > 1) {
-            galleryNote += `
-                The created or reused gallery keeps the available scene tags.
-            `;
-        } else {
-            galleryNote += `
-                This is a standalone image import, so only tags you explicitly
-                assign here are added to the image.
-            `;
-        }
-
-        let imageRows = "";
-
-        images.forEach(function (image, imageIndex) {
-            const sourceUrl =
-                image.source_url || "";
-
-            const thumbnail =
-                image.thumbnail
-                || sourceUrl;
-
-            let tagChoices = "";
-
-            tags.forEach(function (tagName) {
-                tagChoices += `
-                    <label
-                        class="ppics-image-tag-choice"
-                        data-tag-name="${escapeHtml(tagName)}"
-                    >
-                        <input
-                            type="checkbox"
-                            class="ppics-image-tag-checkbox"
-                            data-scene-url="${escapeHtml(scene.url)}"
-                            data-source-url="${escapeHtml(sourceUrl)}"
-                            data-tag-name="${escapeHtml(tagName)}"
-                        >
-
-                        <span class="ppics-image-tag-choice-body">
-                            <span class="ppics-image-tag-choice-name">
-                                ${escapeHtml(tagName)}
-                            </span>
-
-                            <small class="ppics-image-tag-choice-status">
-                                Waiting for metadata decisions
-                            </small>
-                        </span>
-                    </label>
-                `;
-            });
-
-            imageRows += `
-                <div
-                    class="ppics-image-tag-image"
-                    data-source-url="${escapeHtml(sourceUrl)}"
-                >
-                    <button
-                        type="button"
-                        class="ppics-image-tag-thumb ppics-image-tag-preview"
-                        data-source-url="${escapeHtml(sourceUrl)}"
-                        aria-label="Enlarge image ${escapeHtml(imageIndex + 1)}"
-                    >
-                        <img
-                            src="${escapeHtml(thumbnail)}"
-                            alt=""
-                        >
-
-                        <span class="ppics-image-tag-index">
-                            Image ${escapeHtml(imageIndex + 1)}
-                        </span>
-
-                        <span
-                            class="ppics-image-tag-zoom"
-                            aria-hidden="true"
-                        >
-                            ⛶
-                        </span>
-                    </button>
-
-                    <div class="ppics-image-tag-choices">
-                        ${tagChoices}
-                    </div>
-                </div>
-            `;
-        });
-
-        return `
-            <div
-                class="ppics-image-tag-review"
-                data-scene-url="${escapeHtml(scene.url)}"
-            >
-                <div class="ppics-image-tag-heading">
-                    <div>
-                        <div class="ppics-review-control-label">
-                            Image tags
-                        </div>
-
-                        <p>
-                            ${galleryNote}
-                            Only tags you matched, found, or chose to create in
-                            the Metadata step are available below.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="ppics-image-tag-custom ppics-image-tag-custom-open">
-                    <div class="ppics-image-tag-custom-head">
-                        <strong>
-                            Choose tags for each image
-                        </strong>
-
-                        <span>
-                            Changes here only affect images from this PornPics scene.
-                        </span>
-                    </div>
-
-                    <div class="ppics-image-tag-images">
-                        ${imageRows}
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    function metadataTagDecision(
-        tagName
+    function metadataEntityDecision(
+        kind,
+        name
     ) {
         let row = null;
 
         document.querySelectorAll(
-            '.ppics-entity-row[data-entity-kind="tag"]'
+            '.ppics-entity-row[data-entity-kind="' +
+            CSS.escape(
+                String(kind)
+            )
+            + '"]'
         ).forEach(function (candidate) {
             if (
                 candidate.dataset.entityName ===
-                tagName
+                name
             ) {
                 row = candidate;
             }
@@ -5893,7 +6311,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             && mappedId.value
         ) {
             let label =
-                "Mapped to existing Stash tag";
+                "Mapped to existing Stash "
+                + kind;
 
             if (
                 mappedName
@@ -5931,30 +6350,369 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         };
     }
 
-    function refreshImageTagResolution() {
+    function imageMetadataMatrixHtml(
+        scene,
+        kind,
+        names,
+        title,
+        description
+    ) {
+        names = Array.from(
+            names || []
+        );
+
+        const images = Array.from(
+            scene.selected_images || []
+        );
+
+        if (
+            !names.length
+            || !images.length
+        ) {
+            return "";
+        }
+
+        let headers = "";
+
+        names.forEach(function (name) {
+            headers += `
+                <th
+                    class="ppics-image-meta-column"
+                    data-meta-kind="${escapeHtml(kind)}"
+                    data-meta-name="${escapeHtml(name)}"
+                >
+                    <div class="ppics-image-meta-column-head">
+                        <strong>
+                            ${escapeHtml(name)}
+                        </strong>
+
+                        <small class="ppics-image-meta-column-status">
+                            Waiting for metadata decisions
+                        </small>
+
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-secondary ppics-image-meta-select-all"
+                            data-meta-kind="${escapeHtml(kind)}"
+                            data-meta-name="${escapeHtml(name)}"
+                        >
+                            Select all
+                        </button>
+                    </div>
+                </th>
+            `;
+        });
+
+        let rows = "";
+
+        images.forEach(function (image, imageIndex) {
+            const sourceUrl =
+                image.source_url || "";
+
+            const thumbnail =
+                image.thumbnail
+                || sourceUrl;
+
+            let cells = "";
+
+            names.forEach(function (name) {
+                cells += `
+                    <td
+                        class="ppics-image-meta-cell"
+                        data-meta-kind="${escapeHtml(kind)}"
+                        data-meta-name="${escapeHtml(name)}"
+                    >
+                        <label class="ppics-image-meta-check">
+                            <input
+                                type="checkbox"
+                                class="ppics-image-meta-checkbox"
+                                data-meta-kind="${escapeHtml(kind)}"
+                                data-meta-name="${escapeHtml(name)}"
+                                data-scene-url="${escapeHtml(scene.url)}"
+                                data-source-url="${escapeHtml(sourceUrl)}"
+                            >
+
+                            <span aria-hidden="true">
+                                ✓
+                            </span>
+                        </label>
+                    </td>
+                `;
+            });
+
+            rows += `
+                <tr
+                    class="ppics-image-meta-row"
+                    data-source-url="${escapeHtml(sourceUrl)}"
+                >
+                    <th
+                        scope="row"
+                        class="ppics-image-meta-image-cell"
+                    >
+                        <button
+                            type="button"
+                            class="ppics-image-meta-preview"
+                            data-source-url="${escapeHtml(sourceUrl)}"
+                            aria-label="Enlarge image ${escapeHtml(imageIndex + 1)}"
+                        >
+                            <img
+                                src="${escapeHtml(thumbnail)}"
+                                alt=""
+                            >
+
+                            <span>
+                                Image ${escapeHtml(imageIndex + 1)}
+                            </span>
+
+                            <b aria-hidden="true">
+                                ⛶
+                            </b>
+                        </button>
+                    </th>
+
+                    ${cells}
+                </tr>
+            `;
+        });
+
+        return `
+            <section
+                class="ppics-image-meta-matrix"
+                data-scene-url="${escapeHtml(scene.url)}"
+                data-meta-kind="${escapeHtml(kind)}"
+            >
+                <div class="ppics-image-meta-matrix-heading">
+                    <h4>
+                        ${escapeHtml(title)}
+                    </h4>
+
+                    <p>
+                        ${escapeHtml(description)}
+                    </p>
+                </div>
+
+                <div class="ppics-image-meta-table-wrap">
+                    <table class="ppics-image-meta-table">
+                        <thead>
+                            <tr>
+                                <th class="ppics-image-meta-image-header">
+                                    Image
+                                </th>
+
+                                ${headers}
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        `;
+    }
+
+    function sceneImageMetadataAssignmentHtml(
+        group,
+        scene
+    ) {
+        if (!scene) {
+            return "";
+        }
+
+        let tags = [];
+        let performers = [];
+
+        if (
+            currentPreflight
+            && !currentPreflight.skip_tags
+            && reviewTagMode === "custom"
+        ) {
+            tags = Array.from(
+                scene.scene_tags || []
+            );
+        }
+
+        if (
+            currentPreflight
+            && !currentPreflight.skip_performers
+        ) {
+            performers = Array.from(
+                scene.performers || []
+            );
+        }
+
+        let tagMatrix = "";
+        let performerMatrix = "";
+
+        if (tags.length) {
+            tagMatrix =
+                imageMetadataMatrixHtml(
+                    scene,
+                    "tag",
+                    tags,
+                    "Tags per image",
+                    "Choose only the tags that visually belong to each photo. Select all applies one specific tag to every selected photo from this scene."
+                );
+        }
+
+        if (performers.length) {
+            performerMatrix =
+                imageMetadataMatrixHtml(
+                    scene,
+                    "performer",
+                    performers,
+                    "Performers per image",
+                    "Choose which performers are actually visible in each photo. Select all applies one specific performer to every selected photo from this scene."
+                );
+        }
+
+        if (
+            !tagMatrix
+            && !performerMatrix
+        ) {
+            return `
+                <div class="ppics-image-meta-empty">
+                    No per-image metadata needs to be assigned for this scene.
+                </div>
+            `;
+        }
+
+        return `
+            <div
+                class="ppics-image-metadata-review"
+                data-scene-url="${escapeHtml(scene.url)}"
+            >
+                ${tagMatrix}
+                ${performerMatrix}
+            </div>
+        `;
+    }
+
+    function updateImageMetaSelectAllState(
+        matrix,
+        kind,
+        name
+    ) {
+        const selector =
+            '.ppics-image-meta-checkbox[data-meta-kind="' +
+            CSS.escape(
+                String(kind)
+            )
+            + '"][data-meta-name="' +
+            CSS.escape(
+                String(name)
+            )
+            + '"]';
+
+        const button =
+            matrix.querySelector(
+                '.ppics-image-meta-select-all[data-meta-kind="' +
+                CSS.escape(
+                    String(kind)
+                )
+                + '"][data-meta-name="' +
+                CSS.escape(
+                    String(name)
+                )
+                + '"]'
+            );
+
+        if (!button) {
+            return;
+        }
+
+        const inputs =
+            Array.from(
+                matrix.querySelectorAll(
+                    selector
+                )
+            ).filter(
+                function (input) {
+                    return !input.disabled;
+                }
+            );
+
+        if (!inputs.length) {
+            button.disabled =
+                true;
+            button.textContent =
+                "Unavailable";
+            return;
+        }
+
+        button.disabled =
+            false;
+
+        const allSelected =
+            inputs.every(
+                function (input) {
+                    return input.checked;
+                }
+            );
+
+        if (allSelected) {
+            button.textContent =
+                "All selected";
+        } else {
+            button.textContent =
+                "Select all";
+        }
+    }
+
+    function refreshImageMetadataResolution() {
         document.querySelectorAll(
-            ".ppics-image-tag-choice"
-        ).forEach(function (choice) {
-            const tagName =
-                choice.dataset.tagName
+            ".ppics-image-meta-column"
+        ).forEach(function (column) {
+            const kind =
+                column.dataset.metaKind
+                || "";
+
+            const name =
+                column.dataset.metaName
                 || "";
 
             const decision =
-                metadataTagDecision(
-                    tagName
+                metadataEntityDecision(
+                    kind,
+                    name
                 );
 
-            const input =
-                choice.querySelector(
-                    ".ppics-image-tag-checkbox"
+            const matrix =
+                column.closest(
+                    ".ppics-image-meta-matrix"
                 );
 
             const status =
-                choice.querySelector(
-                    ".ppics-image-tag-choice-status"
+                column.querySelector(
+                    ".ppics-image-meta-column-status"
                 );
 
-            if (input) {
+            if (status) {
+                status.textContent =
+                    decision.status;
+            }
+
+            column.classList.toggle(
+                "ppics-image-meta-column-unavailable",
+                !decision.available
+            );
+
+            if (!matrix) {
+                return;
+            }
+
+            matrix.querySelectorAll(
+                '.ppics-image-meta-checkbox[data-meta-kind="' +
+                CSS.escape(
+                    String(kind)
+                )
+                + '"][data-meta-name="' +
+                CSS.escape(
+                    String(name)
+                )
+                + '"]'
+            ).forEach(function (input) {
                 input.disabled =
                     !decision.available;
 
@@ -5962,20 +6720,94 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                     input.checked =
                         false;
                 }
-            }
+            });
 
-            choice.classList.toggle(
-                "ppics-image-tag-choice-unavailable",
-                !decision.available
+            updateImageMetaSelectAllState(
+                matrix,
+                kind,
+                name
             );
-
-            if (status) {
-                status.textContent =
-                    decision.status;
-            }
         });
-
     }
+
+    function bindImageMetadataControls() {
+        document.querySelectorAll(
+            ".ppics-image-meta-matrix"
+        ).forEach(function (matrix) {
+            matrix.querySelectorAll(
+                ".ppics-image-meta-select-all"
+            ).forEach(function (button) {
+                button.addEventListener(
+                    "click",
+                    function () {
+                        const kind =
+                            button.dataset.metaKind
+                            || "";
+
+                        const name =
+                            button.dataset.metaName
+                            || "";
+
+                        matrix.querySelectorAll(
+                            '.ppics-image-meta-checkbox[data-meta-kind="' +
+                            CSS.escape(
+                                String(kind)
+                            )
+                            + '"][data-meta-name="' +
+                            CSS.escape(
+                                String(name)
+                            )
+                            + '"]'
+                        ).forEach(function (input) {
+                            if (!input.disabled) {
+                                input.checked =
+                                    true;
+                            }
+                        });
+
+                        updateImageMetaSelectAllState(
+                            matrix,
+                            kind,
+                            name
+                        );
+                    }
+                );
+            });
+
+            matrix.querySelectorAll(
+                ".ppics-image-meta-checkbox"
+            ).forEach(function (input) {
+                input.addEventListener(
+                    "change",
+                    function () {
+                        updateImageMetaSelectAllState(
+                            matrix,
+                            input.dataset.metaKind
+                            || "",
+                            input.dataset.metaName
+                            || ""
+                        );
+                    }
+                );
+            });
+
+            matrix.querySelectorAll(
+                ".ppics-image-meta-preview"
+            ).forEach(function (button) {
+                button.addEventListener(
+                    "click",
+                    function () {
+                        openTagReviewSpotlight(
+                            matrix,
+                            button.dataset.sourceUrl
+                            || ""
+                        );
+                    }
+                );
+            });
+        });
+    }
+
 
     function openTagReviewSpotlight(
         container,
@@ -6009,11 +6841,11 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         let initialIndex = 0;
 
         container.querySelectorAll(
-            ".ppics-image-tag-image"
+            ".ppics-image-meta-row"
         ).forEach(function (row, index) {
             const image =
                 row.querySelector(
-                    ".ppics-image-tag-preview img"
+                    ".ppics-image-meta-preview img"
                 );
 
             const rowSource =
@@ -6276,93 +7108,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         updateTagModeCards();
     }
 
-    function bindImageTagControls() {
-        document.querySelectorAll(
-            ".ppics-image-tag-review"
-        ).forEach(function (container) {
-            container.querySelectorAll(
-                ".ppics-image-tag-checkbox"
-            ).forEach(function (input) {
-                input.addEventListener(
-                    "change",
-                    function () {
-                        return;
-                    }
-                );
-            });
-
-            container.querySelectorAll(
-                ".ppics-image-tag-preview"
-            ).forEach(function (button) {
-                button.addEventListener(
-                    "click",
-                    function () {
-                        openTagReviewSpotlight(
-                            container,
-                            button.dataset.sourceUrl
-                            || ""
-                        );
-                    }
-                );
-            });
-        });
-    }
-
-    function reviewSceneHtml(groups) {
-        let html = "";
-
-        groups.forEach(function (group) {
-            let action = "Standalone image";
-
-            if (group.images.length > 1) {
-                action = "Create gallery";
-            }
-
-            let thumbnails = "";
-
-            group.images.forEach(function (image) {
-                const thumb = image.thumbnail || image.imageUrl || "";
-
-                thumbnails += `
-                    <img src="${escapeHtml(thumb)}" alt="">
-                `;
-            });
-
-            const scene = preflightSceneByUrl(group.url) || {
-                url: group.url,
-                video_candidates: []
-            };
-
-            html += `
-                <div class="ppics-review-scene">
-                    <div class="ppics-review-scene-heading">
-                        <div>
-                            <strong>${escapeHtml(group.title)}</strong>
-                            <div class="text-muted">
-                                ${escapeHtml(group.images.length)} selected
-                            </div>
-                        </div>
-
-                        <span class="ppics-review-action">
-                            ${escapeHtml(action)}
-                        </span>
-                    </div>
-
-                    <div class="ppics-review-thumbs">
-                        ${thumbnails}
-                    </div>
-
-                    ${sceneTagAssignmentHtml(group, scene)}
-                    ${coverChoiceHtml(group, scene)}
-                    ${candidateSelectHtml(scene)}
-                </div>
-            `;
-        });
-
-        return html;
-    }
-
-    function reviewImageTagScenesHtml(
+    function reviewImageMetadataScenesHtml(
         groups
     ) {
         let html = "";
@@ -6408,7 +7154,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                         </div>
 
                         <span class="ppics-review-action">
-                            Image tags
+                            Image metadata
                         </span>
                     </div>
 
@@ -6416,7 +7162,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                         ${thumbnails}
                     </div>
 
-                    ${sceneTagAssignmentHtml(group, scene)}
+                    ${sceneImageMetadataAssignmentHtml(group, scene)}
                 </div>
             `;
         });
@@ -6562,12 +7308,15 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         if (
-            !preflight.skip_tags
-            && reviewTagMode === "custom"
+            !preflight.skip_performers
+            || (
+                !preflight.skip_tags
+                && reviewTagMode === "custom"
+            )
         ) {
             result.push({
-                id: "image-tags",
-                label: "Image tags"
+                id: "image-metadata",
+                label: "Image metadata"
             });
         }
 
@@ -6657,11 +7406,11 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         ).length;
     }
 
-    function imageTagAssignmentStats(
+    function imageAssignmentStats(
         assignments
     ) {
         let photos = 0;
-        let tags = 0;
+        let assignmentCount = 0;
 
         Object.keys(
             assignments || {}
@@ -6683,14 +7432,16 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
                 if (names.length) {
                     photos += 1;
-                    tags += names.length;
+                    assignmentCount +=
+                        names.length;
                 }
             });
         });
 
         return {
             photos: photos,
-            tags: tags
+            assignments:
+                assignmentCount
         };
     }
 
@@ -6708,8 +7459,13 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             collectImportOptions();
 
         const tagStats =
-            imageTagAssignmentStats(
+            imageAssignmentStats(
                 options.image_tag_assignments
+            );
+
+        const performerStats =
+            imageAssignmentStats(
+                options.image_performer_assignments
             );
 
         const createCount =
@@ -6758,13 +7514,23 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             </div>
 
             <div>
-                <strong>${escapeHtml(tagStats.tags)}</strong>
+                <strong>${escapeHtml(tagStats.assignments)}</strong>
                 <span>image tag assignments</span>
             </div>
 
             <div>
                 <strong>${escapeHtml(tagStats.photos)}</strong>
                 <span>tagged photos</span>
+            </div>
+
+            <div>
+                <strong>${escapeHtml(performerStats.assignments)}</strong>
+                <span>image performer assignments</span>
+            </div>
+
+            <div>
+                <strong>${escapeHtml(performerStats.photos)}</strong>
+                <span>photos with performers</span>
             </div>
 
             <div>
@@ -6861,9 +7627,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
         if (
             stepId ===
-            "image-tags"
+            "image-metadata"
         ) {
-            refreshImageTagResolution();
+            refreshImageMetadataResolution();
         }
 
         if (
@@ -7184,17 +7950,20 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 );
         }
 
-        let imageTagStep = "";
+        let imageMetadataStep = "";
 
-        if (!preflight.skip_tags) {
-            imageTagStep =
+        if (
+            !preflight.skip_performers
+            || !preflight.skip_tags
+        ) {
+            imageMetadataStep =
                 reviewStepSection(
-                    "image-tags",
-                    "Assign image tags",
-                    "Tag matching is complete. Inspect each selected image and choose only the resolved tags that visually belong to it.",
+                    "image-metadata",
+                    "Assign image metadata",
+                    "Metadata matching is complete. Choose which resolved tags and performers actually belong to each selected image.",
                     `
                         <div class="ppics-review-list">
-                            ${reviewImageTagScenesHtml(groups)}
+                            ${reviewImageMetadataScenesHtml(groups)}
                         </div>
                     `
                 );
@@ -7292,7 +8061,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 <div class="ppics-review-step-shell">
                     ${tagHandlingStep}
                     ${metadataStep}
-                    ${imageTagStep}
+                    ${imageMetadataStep}
                     ${sceneOptionsStep}
                     ${finalStep}
                 </div>
@@ -7388,7 +8157,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
         bindSceneCandidateSelects();
         bindEntityMapControls();
-        bindImageTagControls();
+        bindImageMetadataControls();
         bindTagModeControls();
     }
 
@@ -7796,6 +8565,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             scene_links: {},
             covers: {},
             image_tag_assignments: {},
+            image_performer_assignments: {},
             tag_mode: reviewTagMode,
             organized: false
         };
@@ -7875,7 +8645,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             });
 
         document.querySelectorAll(
-            ".ppics-image-tag-review"
+            ".ppics-image-metadata-review"
         ).forEach(function (container) {
             const sceneUrl =
                 container.dataset.sceneUrl;
@@ -7884,10 +8654,11 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 return;
             }
 
-            const imageMap = {};
+            const tagImageMap = {};
+            const performerImageMap = {};
 
             container.querySelectorAll(
-                ".ppics-image-tag-image"
+                ".ppics-image-meta-row"
             ).forEach(function (imageRow) {
                 const sourceUrl =
                     imageRow.dataset.sourceUrl;
@@ -7896,27 +8667,53 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                     return;
                 }
 
-                const names = [];
+                const tagNames = [];
+                const performerNames = [];
 
                 imageRow.querySelectorAll(
-                    ".ppics-image-tag-checkbox"
+                    ".ppics-image-meta-checkbox"
                 ).forEach(function (input) {
-                    if (input.checked) {
-                        names.push(
-                            input.dataset.tagName
+                    if (!input.checked) {
+                        return;
+                    }
+
+                    if (
+                        input.dataset.metaKind ===
+                        "tag"
+                    ) {
+                        tagNames.push(
+                            input.dataset.metaName
+                        );
+                    }
+
+                    if (
+                        input.dataset.metaKind ===
+                        "performer"
+                    ) {
+                        performerNames.push(
+                            input.dataset.metaName
                         );
                     }
                 });
 
-                imageMap[
+                tagImageMap[
                     sourceUrl
-                ] = names;
+                ] = tagNames;
+
+                performerImageMap[
+                    sourceUrl
+                ] = performerNames;
             });
 
             result.image_tag_assignments[
                 sceneUrl
-            ] = imageMap;
+            ] = tagImageMap;
+
+            result.image_performer_assignments[
+                sceneUrl
+            ] = performerImageMap;
         });
+
 
         document.querySelectorAll(".ppics-scene-link-select")
             .forEach(function (select) {

@@ -1,6 +1,7 @@
 from urllib.request import Request, urlopen
 from urllib.parse import quote, urlencode, urljoin, urlparse
 from html.parser import HTMLParser
+from html import unescape
 
 import hashlib
 import json
@@ -303,8 +304,38 @@ class ContextListParser(HTMLParser):
 
 
 class GalleryParser(HTMLParser):
+    VOID_TAGS = {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr"
+    }
+
+    PERFORMER_PREFIXES = (
+        "/pornstars/",
+        "/models/",
+        "/performers/"
+    )
+
+    STUDIO_PREFIXES = (
+        "/channels/",
+        "/studios/"
+    )
+
     def __init__(self):
-        super().__init__(convert_charrefs=True)
+        super().__init__(
+            convert_charrefs=True
+        )
 
         self.data = {
             "title": None,
@@ -330,131 +361,300 @@ class GalleryParser(HTMLParser):
 
         self.current_image = None
 
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        classes = attrs.get("class", "").split()
+    def _normalized_path(
+        self,
+        href
+    ):
+        try:
+            return urlparse(
+                urljoin(
+                    BASE_URL,
+                    str(
+                        href or ""
+                    )
+                )
+            ).path.casefold()
+        except Exception:
+            return str(
+                href or ""
+            ).casefold()
+
+    def _path_matches(
+        self,
+        path,
+        prefixes
+    ):
+        for prefix in prefixes:
+            if (
+                path.startswith(
+                    prefix
+                )
+                and path != prefix
+            ):
+                return True
+
+        return False
+
+    def _enter_info_root(
+        self,
+        tag,
+        classes
+    ):
+        if self.gallery_info_depth > 0:
+            if tag not in self.VOID_TAGS:
+                self.gallery_info_depth += 1
+
+            self.in_info = True
+            return
+
+        if "gallery-info" in classes:
+            self.gallery_info_depth = 1
+            self.in_info = True
+
+    def handle_starttag(
+        self,
+        tag,
+        attrs
+    ):
+        attrs = dict(
+            attrs
+        )
+
+        classes = str(
+            attrs.get("class") or ""
+        ).split()
 
         if tag == "h1":
             self.in_h1 = True
             self.h1_parts = []
 
-        if tag == "div":
-            if self.gallery_info_depth > 0:
-                self.gallery_info_depth += 1
-            elif "gallery-info" in classes:
-                self.gallery_info_depth = 1
-
-            self.in_info = self.gallery_info_depth > 0
+        self._enter_info_root(
+            tag,
+            classes
+        )
 
         if (
             self.in_info
-            and tag == "span"
-            and "gallery-info__title" in classes
+            and (
+                tag == "span"
+                or tag == "div"
+                or tag == "dt"
+                or tag == "strong"
+            )
+            and (
+                "gallery-info__title"
+                in classes
+                or "gallery-info-title"
+                in classes
+                or "info-title"
+                in classes
+            )
         ):
             self.reading_label = True
             self.label_parts = []
 
         if tag == "a":
-            href = attrs.get("href", "")
+            href = str(
+                attrs.get("href") or ""
+            ).strip()
+
+            path = self._normalized_path(
+                href
+            )
 
             if (
                 "rel-link" in classes
-                and "cdni.pornpics.com/1280/" in href
+                and (
+                    "/1280/" in href
+                    or "/1280/" in path
+                )
+                and (
+                    "pornpics.com" in href
+                    or href.startswith("/")
+                )
             ):
                 self.current_image = {
-                    "index": len(self.data["images"]) + 1,
-                    "url": href,
+                    "index":
+                        len(
+                            self.data["images"]
+                        )
+                        + 1,
+                    "url": urljoin(
+                        BASE_URL,
+                        href
+                    ),
                     "thumbnail": None,
                 }
 
             elif (
                 self.in_info
-                and href.startswith("/channels/")
-                and href != "/channels/"
+                and self._path_matches(
+                    path,
+                    self.STUDIO_PREFIXES
+                )
             ):
                 self.capture_kind = "studio"
                 self.capture_parts = []
 
             elif (
                 self.in_info
-                and href.startswith("/pornstars/")
-                and href != "/pornstars/"
+                and self._path_matches(
+                    path,
+                    self.PERFORMER_PREFIXES
+                )
             ):
                 self.capture_kind = "performer"
                 self.capture_parts = []
 
             elif (
                 self.in_info
-                and self.section in ("categories", "tags")
+                and self.section
+                in (
+                    "categories",
+                    "tags"
+                )
                 and href
             ):
                 self.capture_kind = "tag"
                 self.capture_parts = []
 
-        if tag == "img" and self.current_image is not None:
+        if (
+            tag == "img"
+            and self.current_image
+            is not None
+        ):
             thumb = (
                 attrs.get("data-src")
+                or attrs.get("data-lazy-src")
                 or attrs.get("src")
             )
 
-            if thumb and "1px.png" not in thumb:
-                self.current_image["thumbnail"] = thumb
+            if (
+                thumb
+                and "1px.png"
+                not in thumb
+            ):
+                self.current_image[
+                    "thumbnail"
+                ] = urljoin(
+                    BASE_URL,
+                    thumb
+                )
 
-    def handle_data(self, data):
-        text = data.strip()
+    def handle_data(
+        self,
+        data
+    ):
+        text = str(
+            data or ""
+        ).strip()
 
         if not text:
             return
 
         if self.in_h1:
-            self.h1_parts.append(text)
+            self.h1_parts.append(
+                text
+            )
 
         if self.reading_label:
-            self.label_parts.append(text)
+            self.label_parts.append(
+                text
+            )
 
         if self.capture_kind:
-            self.capture_parts.append(text)
+            self.capture_parts.append(
+                text
+            )
 
-    def handle_endtag(self, tag):
-        if tag == "h1" and self.in_h1:
-            title = " ".join(self.h1_parts).strip()
+    def handle_endtag(
+        self,
+        tag
+    ):
+        if (
+            tag == "h1"
+            and self.in_h1
+        ):
+            title = " ".join(
+                self.h1_parts
+            ).strip()
 
             if title:
-                self.data["title"] = title
+                self.data[
+                    "title"
+                ] = title
 
             self.in_h1 = False
             self.h1_parts = []
 
-        if tag == "span" and self.reading_label:
-            label = (
-                " ".join(self.label_parts)
-                .replace("\xa0", " ")
-                .strip()
-                .rstrip(":")
-                .lower()
-            )
+        if self.reading_label:
+            if tag in (
+                "span",
+                "div",
+                "dt",
+                "strong"
+            ):
+                label = (
+                    " ".join(
+                        self.label_parts
+                    )
+                    .replace(
+                        "\xa0",
+                        " "
+                    )
+                    .strip()
+                    .rstrip(":")
+                    .casefold()
+                )
 
-            if label == "channel":
-                self.section = "channel"
-            elif label == "models":
-                self.section = "models"
-            elif label == "categories":
-                self.section = "categories"
-            elif label == "tags list":
-                self.section = "tags"
-            elif label == "stats":
-                self.section = "stats"
-            else:
-                self.section = None
+                if label in (
+                    "channel",
+                    "channels",
+                    "studio"
+                ):
+                    self.section = "channel"
 
-            self.reading_label = False
-            self.label_parts = []
+                elif label in (
+                    "model",
+                    "models",
+                    "performer",
+                    "performers",
+                    "pornstar",
+                    "pornstars"
+                ):
+                    self.section = "models"
+
+                elif label in (
+                    "category",
+                    "categories"
+                ):
+                    self.section = "categories"
+
+                elif label in (
+                    "tag",
+                    "tags",
+                    "tag list",
+                    "tags list"
+                ):
+                    self.section = "tags"
+
+                elif label == "stats":
+                    self.section = "stats"
+
+                else:
+                    self.section = None
+
+                self.reading_label = False
+                self.label_parts = []
 
         if tag == "a":
             if self.current_image is not None:
-                self.data["images"].append(
+                self.data[
+                    "images"
+                ].append(
                     self.current_image
                 )
+
                 self.current_image = None
 
             elif self.capture_kind:
@@ -462,31 +662,66 @@ class GalleryParser(HTMLParser):
                     self.capture_parts
                 ).strip()
 
-                if text:
-                    if self.capture_kind == "studio":
-                        self.data["studio"] = text
+                text = " ".join(
+                    text.split()
+                )
 
-                    elif self.capture_kind == "performer":
-                        if text not in self.data["performers"]:
-                            self.data["performers"].append(
+                if text:
+                    if (
+                        self.capture_kind
+                        == "studio"
+                    ):
+                        self.data[
+                            "studio"
+                        ] = text
+
+                    elif (
+                        self.capture_kind
+                        == "performer"
+                    ):
+                        if (
+                            text
+                            not in self.data[
+                                "performers"
+                            ]
+                        ):
+                            self.data[
+                                "performers"
+                            ].append(
                                 text
                             )
 
-                    elif self.capture_kind == "tag":
-                        if text not in self.data["tags"]:
-                            self.data["tags"].append(
+                    elif (
+                        self.capture_kind
+                        == "tag"
+                    ):
+                        if (
+                            text
+                            not in self.data[
+                                "tags"
+                            ]
+                        ):
+                            self.data[
+                                "tags"
+                            ].append(
                                 text
                             )
 
                 self.capture_kind = None
                 self.capture_parts = []
 
-        if tag == "div" and self.gallery_info_depth > 0:
+        if (
+            self.gallery_info_depth > 0
+            and tag not in self.VOID_TAGS
+        ):
             self.gallery_info_depth -= 1
-            self.in_info = self.gallery_info_depth > 0
 
-            if self.gallery_info_depth == 0:
+            if self.gallery_info_depth <= 0:
+                self.gallery_info_depth = 0
+                self.in_info = False
                 self.section = None
+            else:
+                self.in_info = True
 
 
 class PPics:
@@ -2525,10 +2760,265 @@ class PPics:
 
         return scenes[:limit]
 
-    def parse_gallery_html(self, html):
+    def _clean_person_name(
+        self,
+        value
+    ):
+        value = unescape(
+            str(
+                value or ""
+            )
+        )
+
+        value = re.sub(
+            r"<[^>]+>",
+            " ",
+            value
+        )
+
+        return " ".join(
+            value.split()
+        ).strip()
+
+    def _structured_person_names(
+        self,
+        value
+    ):
+        result = []
+
+        def add_name(
+            candidate
+        ):
+            candidate = (
+                self._clean_person_name(
+                    candidate
+                )
+            )
+
+            if (
+                candidate
+                and candidate
+                not in result
+            ):
+                result.append(
+                    candidate
+                )
+
+        def collect_person_value(
+            item
+        ):
+            if isinstance(
+                item,
+                str
+            ):
+                add_name(
+                    item
+                )
+                return
+
+            if isinstance(
+                item,
+                list
+            ):
+                for child in item:
+                    collect_person_value(
+                        child
+                    )
+                return
+
+            if not isinstance(
+                item,
+                dict
+            ):
+                return
+
+            name = item.get(
+                "name"
+            )
+
+            if name:
+                add_name(
+                    name
+                )
+
+            for nested_key in (
+                "itemListElement",
+                "items",
+                "members"
+            ):
+                if nested_key in item:
+                    collect_person_value(
+                        item.get(
+                            nested_key
+                        )
+                    )
+
+        def walk(
+            item
+        ):
+            if isinstance(
+                item,
+                list
+            ):
+                for child in item:
+                    walk(
+                        child
+                    )
+                return
+
+            if not isinstance(
+                item,
+                dict
+            ):
+                return
+
+            for key, child in item.items():
+                normalized_key = str(
+                    key or ""
+                ).replace(
+                    "_",
+                    ""
+                ).replace(
+                    "-",
+                    ""
+                ).casefold()
+
+                if normalized_key in (
+                    "actor",
+                    "actors",
+                    "model",
+                    "models",
+                    "performer",
+                    "performers",
+                    "pornstar",
+                    "pornstars"
+                ):
+                    collect_person_value(
+                        child
+                    )
+
+                walk(
+                    child
+                )
+
+        walk(
+            value
+        )
+
+        return result
+
+    def _json_ld_performers(
+        self,
+        html
+    ):
+        result = []
+
+        pattern = re.compile(
+            r"<script[^>]+type=[\"']application/ld\+json[\"'][^>]*>(.*?)</script>",
+            flags=(
+                re.IGNORECASE
+                | re.DOTALL
+            )
+        )
+
+        for match in pattern.finditer(
+            str(
+                html or ""
+            )
+        ):
+            text = unescape(
+                match.group(1)
+            ).strip()
+
+            if not text:
+                continue
+
+            try:
+                payload = json.loads(
+                    text
+                )
+            except Exception:
+                continue
+
+            for name in self._structured_person_names(
+                payload
+            ):
+                if name not in result:
+                    result.append(
+                        name
+                    )
+
+        return result
+
+    def _linked_performers_fallback(
+        self,
+        html
+    ):
+        result = []
+
+        pattern = re.compile(
+            r"<a\b[^>]*href=[\"'][^\"']*(?:/pornstars/|/models/|/performers/)[^\"']*[\"'][^>]*>(.*?)</a>",
+            flags=(
+                re.IGNORECASE
+                | re.DOTALL
+            )
+        )
+
+        for match in pattern.finditer(
+            str(
+                html or ""
+            )
+        ):
+            name = self._clean_person_name(
+                match.group(1)
+            )
+
+            if (
+                name
+                and name
+                not in result
+            ):
+                result.append(
+                    name
+                )
+
+        return result
+
+    def parse_gallery_html(
+        self,
+        html
+    ):
         parser = GalleryParser()
-        parser.feed(html)
-        return parser.data
+        parser.feed(
+            html or ""
+        )
+
+        data = parser.data
+
+        if not data.get(
+            "performers"
+        ):
+            data[
+                "performers"
+            ] = self._json_ld_performers(
+                html
+            )
+
+        if not data.get(
+            "performers"
+        ):
+            linked = (
+                self._linked_performers_fallback(
+                    html
+                )
+            )
+
+            if linked:
+                data[
+                    "performers"
+                ] = linked
+
+        return data
 
     def get_images(self, scene_url):
         print(
