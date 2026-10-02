@@ -1,4 +1,4 @@
-const pp_VERSION = "v2.3.1";
+const pp_VERSION = "v2.3.2";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -6373,15 +6373,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         let headers = "";
-        let defaultChecked = "";
-
-        if (
-            kind ===
-            "performer"
-        ) {
-            defaultChecked =
-                "checked";
-        }
+        let defaultChecked =
+            "checked";
 
         names.forEach(function (name) {
             headers += `
@@ -6562,7 +6555,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                     "tag",
                     tags,
                     "Tags per image",
-                    "Choose only the tags that visually belong to each photo. Select all applies one specific tag to every selected photo from this scene."
+                    "Matched or approved tags are selected on all photos by default. Deselect a tag on photos where it does not apply. Select all restores one tag across the whole scene."
                 );
         }
 
@@ -6573,7 +6566,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                     "performer",
                     performers,
                     "Performers per image",
-                    "Choose which performers are actually visible in each photo. Select all applies one specific performer to every selected photo from this scene."
+                    "Matched or approved performers are selected on all photos by default. Deselect a performer on photos where they are not visible. Select all restores one performer across the whole scene."
                 );
         }
 
@@ -7525,7 +7518,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
             <div>
                 <strong>${escapeHtml(tagStats.assignments)}</strong>
-                <span>image tag assignments</span>
+                <span>tag-to-photo assignments</span>
             </div>
 
             <div>
@@ -7535,7 +7528,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
             <div>
                 <strong>${escapeHtml(performerStats.assignments)}</strong>
-                <span>image performer assignments</span>
+                <span>performer-to-photo assignments</span>
             </div>
 
             <div>

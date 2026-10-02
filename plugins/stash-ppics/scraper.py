@@ -361,6 +361,8 @@ class GalleryParser(HTMLParser):
 
         self.current_image = None
 
+        self.model_section_names = []
+
     def _normalized_path(
         self,
         href
@@ -566,6 +568,45 @@ class GalleryParser(HTMLParser):
             self.capture_parts.append(
                 text
             )
+
+        if (
+            self.section == "models"
+            and not self.reading_label
+        ):
+            candidate = " ".join(
+                text.split()
+            ).strip()
+
+            normalized_candidate = (
+                candidate
+                .replace(
+                    "+",
+                    ""
+                )
+                .strip()
+                .casefold()
+            )
+
+            ignored = {
+                "",
+                "suggest",
+                "models",
+                "model",
+                "performers",
+                "performer",
+                "pornstars",
+                "pornstar"
+            }
+
+            if (
+                normalized_candidate
+                not in ignored
+                and candidate
+                not in self.model_section_names
+            ):
+                self.model_section_names.append(
+                    candidate
+                )
 
     def handle_endtag(
         self,
@@ -2994,6 +3035,51 @@ class PPics:
         )
 
         data = parser.data
+
+        if not data.get(
+            "performers"
+        ):
+            visible_models = []
+
+            for name in (
+                parser.model_section_names
+                or []
+            ):
+                clean_name = (
+                    self._clean_person_name(
+                        name
+                    )
+                )
+
+                normalized_name = (
+                    clean_name
+                    .replace(
+                        "+",
+                        ""
+                    )
+                    .strip()
+                    .casefold()
+                )
+
+                if normalized_name in (
+                    "",
+                    "suggest"
+                ):
+                    continue
+
+                if (
+                    clean_name
+                    and clean_name
+                    not in visible_models
+                ):
+                    visible_models.append(
+                        clean_name
+                    )
+
+            if visible_models:
+                data[
+                    "performers"
+                ] = visible_models
 
         if not data.get(
             "performers"

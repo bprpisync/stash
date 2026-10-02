@@ -1,14 +1,13 @@
 {
   "enabled": true,
-  "version": "v2.3.1",
-  "title": "What's new in v2.3.1",
-  "intro": "This update fixes image metadata imports and installation packaging.",
+  "version": "v2.3.2",
+  "title": "What's new in v2.3.2",
+  "intro": "This update improves performer detection and makes image metadata selection more automatic.",
   "items": [
-    "Fixed tag selections being overwritten when performer selection was also enabled.",
-    "Performer selections are now enabled for all selected photos by default and can be deselected per image.",
-    "Imported images now use the PornPics gallery page as their URL instead of the CDN image URL.",
-    "Imported images now use the PornPics gallery title as their image title.",
-    "Added installation-safe packages that always include the UI files."
+    "Added a fallback that reads performer names directly from the visible PornPics Models section, even when the model is not a normal performer link.",
+    "Matched or approved tags are now selected on all chosen photos by default.",
+    "Matched or approved performers are selected on all chosen photos by default.",
+    "You can still deselect individual tags or performers per photo.",
   ],
-  "footer": "Please post a reply on the plugin page if something goes wrong!"
+  "footer": ""
 }
