@@ -3045,6 +3045,238 @@ class PPics:
             value.split()
         )
 
+    def _name_is_in_gallery_title(
+        self,
+        name,
+        title
+    ):
+        normalized_name = (
+            self._normalized_title_match_text(
+                name
+            )
+        )
+
+        normalized_title = (
+            self._normalized_title_match_text(
+                title
+            )
+        )
+
+        if (
+            not normalized_name
+            or not normalized_title
+        ):
+            return False
+
+        return (
+            " "
+            + normalized_name
+            + " "
+        ) in (
+            " "
+            + normalized_title
+            + " "
+        )
+
+    def _performers_from_pornpics_search(
+        self,
+        title
+    ):
+        title = str(
+            title or ""
+        ).strip()
+
+        if not title:
+            return []
+
+        search_url = (
+            self.BASE
+            + "/?"
+            + urlencode(
+                {
+                    "q": title
+                }
+            )
+        )
+
+        try:
+            html = self.fetch(
+                search_url
+            )
+        except Exception:
+            return []
+
+        linked = (
+            self._linked_performers_fallback(
+                html
+            )
+        )
+
+        result = []
+
+        for name in linked:
+            if not self._name_is_in_gallery_title(
+                name,
+                title
+            ):
+                continue
+
+            if name not in result:
+                result.append(
+                    name
+                )
+
+        return result
+
+    def _capitalized_title_name_candidates(
+        self,
+        title
+    ):
+        words = re.findall(
+            r"[A-Za-zÀ-ÖØ-öø-ÿ0-9][A-Za-zÀ-ÖØ-öø-ÿ0-9'’.-]*",
+            str(
+                title or ""
+            )
+        )
+
+        def looks_capitalized(
+            word
+        ):
+            letters = [
+                char
+                for char in word
+                if char.isalpha()
+            ]
+
+            if not letters:
+                return False
+
+            first = letters[0]
+
+            return (
+                first.upper()
+                == first
+                and first.lower()
+                != first
+            )
+
+        result = []
+        seen = set()
+
+        for size in (
+            3,
+            2
+        ):
+            if len(words) < size:
+                continue
+
+            for start in range(
+                0,
+                len(words) - size + 1
+            ):
+                group = words[
+                    start:
+                    start + size
+                ]
+
+                if not all(
+                    looks_capitalized(
+                        word
+                    )
+                    for word in group
+                ):
+                    continue
+
+                candidate = " ".join(
+                    group
+                ).strip()
+
+                key = candidate.casefold()
+
+                if (
+                    not candidate
+                    or key in seen
+                ):
+                    continue
+
+                seen.add(
+                    key
+                )
+
+                result.append(
+                    candidate
+                )
+
+        return result[:16]
+
+    def _verified_performers_from_title_candidates(
+        self,
+        title
+    ):
+        result = []
+
+        for candidate in (
+            self._capitalized_title_name_candidates(
+                title
+            )
+        ):
+            url = self.performer_url(
+                candidate
+            )
+
+            try:
+                html = self.fetch(
+                    url
+                )
+            except Exception:
+                continue
+
+            label = self._page_label(
+                html,
+                url
+            )
+
+            normalized_candidate = (
+                self._normalized_title_match_text(
+                    candidate
+                )
+            )
+
+            normalized_label = (
+                self._normalized_title_match_text(
+                    label
+                )
+            )
+
+            if (
+                not normalized_candidate
+                or not normalized_label
+            ):
+                continue
+
+            if not (
+                normalized_label
+                == normalized_candidate
+                or normalized_label.startswith(
+                    normalized_candidate
+                    + " "
+                )
+            ):
+                continue
+
+            if not self._name_is_in_gallery_title(
+                candidate,
+                title
+            ):
+                continue
+
+            if candidate not in result:
+                result.append(
+                    candidate
+                )
+
+        return result
+
     def _performers_from_gallery_title(
         self,
         title
@@ -3266,6 +3498,22 @@ class PPics:
         if not data.get(
             "performers"
         ):
+            search_performers = (
+                self._performers_from_pornpics_search(
+                    data.get(
+                        "title"
+                    )
+                )
+            )
+
+            if search_performers:
+                data[
+                    "performers"
+                ] = search_performers
+
+        if not data.get(
+            "performers"
+        ):
             title_performers = (
                 self._performers_from_gallery_title(
                     data.get(
@@ -3278,6 +3526,22 @@ class PPics:
                 data[
                     "performers"
                 ] = title_performers
+
+        if not data.get(
+            "performers"
+        ):
+            verified_performers = (
+                self._verified_performers_from_title_candidates(
+                    data.get(
+                        "title"
+                    )
+                )
+            )
+
+            if verified_performers:
+                data[
+                    "performers"
+                ] = verified_performers
 
         return data
 

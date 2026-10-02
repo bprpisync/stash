@@ -22,6 +22,12 @@ SESSION_RESET_FILE = PLUGIN_DIR / "state" / "session-reset.json"
 
 DEFAULT_SEARCH_LIMIT = 20
 IMPORTER_TAG = "PornPics Importer"
+WHATS_NEW_FILE = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "whats-new.json"
+)
+
 LEGACY_IMPORTER_TAG = "PPics"
 
 
@@ -3580,6 +3586,49 @@ def finalize_import(stash, import_id, request_id=None):
     }
 
 
+def load_whats_new_config():
+    if not WHATS_NEW_FILE.exists():
+        return {
+            "status": "ok",
+            "mode": "whats_new",
+            "enabled": False
+        }
+
+    try:
+        payload = json.loads(
+            WHATS_NEW_FILE.read_text(
+                encoding="utf-8"
+            )
+        )
+    except Exception as error:
+        raise RuntimeError(
+            "Could not read assets/whats-new.json: "
+            + str(error)
+        ) from error
+
+    if not isinstance(
+        payload,
+        dict
+    ):
+        raise RuntimeError(
+            "assets/whats-new.json must contain a JSON object."
+        )
+
+    result = dict(
+        payload
+    )
+
+    result[
+        "status"
+    ] = "ok"
+
+    result[
+        "mode"
+    ] = "whats_new"
+
+    return result
+
+
 def imageFilename(url):
     try:
         return Path(urlparse(str(url or "")).path).name or "Image"
@@ -3675,6 +3724,31 @@ def main():
 
     cleanup_old_files(CACHE_DIR, 3600)
     cleanup_old_files(STATE_DIR, 86400)
+
+    if mode == "whats_new":
+        payload = load_whats_new_config()
+
+        payload[
+            "session_reset_token"
+        ] = get_session_reset_token()
+
+        write_cache(
+            request_id,
+            payload
+        )
+
+        print(
+            json.dumps(
+                {
+                    "output": {
+                        "request_id":
+                            request_id
+                    }
+                }
+            )
+        )
+
+        return
 
     pp = PPics()
     stash = Stash(server_connection)
