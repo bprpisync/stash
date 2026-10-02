@@ -1362,11 +1362,17 @@ def performer_names_for_mode(
             performer.get("gender")
         )
 
-        if gender_mode == "women" and group == "woman":
-            result.append(name)
+        if gender_mode == "women":
+            if group != "man":
+                result.append(
+                    name
+                )
 
-        if gender_mode == "men" and group == "man":
-            result.append(name)
+        if gender_mode == "men":
+            if group != "woman":
+                result.append(
+                    name
+                )
 
     return unique_names(result)
 
@@ -1971,6 +1977,13 @@ def preflight_import(
             for item in (scene.get("selected_images") or [])
         ]
 
+        raw_performer_names = unique_names(
+            details.get(
+                "performers"
+            )
+            or []
+        )
+
         preview_scenes.append({
             "scene_id": scene.get("scene_id"),
             "title": scene.get("scene_title"),
@@ -1981,6 +1994,18 @@ def preflight_import(
             "performers": unique_names(
                 scene_performer_names
             ),
+            "detected_performers":
+                raw_performer_names,
+            "detected_performer_count":
+                len(
+                    raw_performer_names
+                ),
+            "included_performer_count":
+                len(
+                    unique_names(
+                        scene_performer_names
+                    )
+                ),
             "tags": unique_names(
                 [IMPORTER_TAG] + (details.get("tags") or [])
             ),
@@ -2331,11 +2356,11 @@ def resolve_entities_for_scene(
                             gender_mode == "women_first"
                             or (
                                 gender_mode == "women"
-                                and group == "woman"
+                                and group != "man"
                             )
                             or (
                                 gender_mode == "men"
-                                and group == "man"
+                                and group != "woman"
                             )
                         )
 

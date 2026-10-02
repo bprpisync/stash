@@ -4280,3 +4280,10 @@
         transition: none !important;
     }
 }
+
+
+/* v2.3.5 - manual What's New access */
+.ppics-whats-new-manual {
+    margin-left: auto;
+    align-self: flex-start;
+}
