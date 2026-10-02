@@ -1302,13 +1302,15 @@ def performer_metadata(stash, names, gender_mode):
         items = [
             item
             for item in items
-            if item["gender_group"] == "woman"
+            if item["gender_group"]
+            != "man"
         ]
     elif gender_mode == "men":
         items = [
             item
             for item in items
-            if item["gender_group"] == "man"
+            if item["gender_group"]
+            != "woman"
         ]
     else:
         order = {
@@ -1991,9 +1993,12 @@ def preflight_import(
             "selected_count": len(selected_images),
             "selected_images": selected_images,
             "studio": details.get("studio"),
-            "performers": unique_names(
-                scene_performer_names
-            ),
+            "performers":
+                raw_performer_names,
+            "assignable_performers":
+                unique_names(
+                    scene_performer_names
+                ),
             "detected_performers":
                 raw_performer_names,
             "detected_performer_count":

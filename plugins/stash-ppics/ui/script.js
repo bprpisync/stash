@@ -1,4 +1,4 @@
-const pp_VERSION = "v2.3.5";
+const pp_VERSION = "v2.4";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -70,8 +70,6 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     let whatsNewCheckInFlight = false;
     let whatsNewRuntimeSeen = "";
     let whatsNewTimer = null;
-    let whatsNewLastAttemptAt = 0;
-    let whatsNewAttemptCount = 0;
 
     const viewHistory = [];
     let viewHistoryIndex = -1;
@@ -1533,86 +1531,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
     }
 
-    async function tryWhatsNewStaticUrl(
-        url
-    ) {
-        try {
-            const response =
-                await fetch(
-                    url,
-                    {
-                        cache:
-                            "no-store",
-                        credentials:
-                            "same-origin"
-                    }
-                );
-
-            if (!response.ok) {
-                return null;
-            }
-
-            const config =
-                await response.json();
-
-            if (
-                config
-                && typeof config
-                    === "object"
-            ) {
-                return config;
-            }
-        } catch (error) {
-            console.warn(
-                "PornPics What's New static path failed",
-                url,
-                error
-            );
-        }
-
-        return null;
-    }
-
     async function loadWhatsNewConfig() {
-        const cacheBust =
-            String.fromCharCode(
-                63
-            )
-            + "v="
-            + encodeURIComponent(
-                pp_VERSION
-            )
-            + "&t="
-            + String(
-                Date.now()
-            );
-
-        const paths = [
-            WHATS_NEW_URL
-                + cacheBust,
-            "/plugin/"
-                + PLUGIN_ID
-                + "/whats-new.json"
-                + cacheBust
-        ];
-
-        for (
-            let index = 0;
-            index < paths.length;
-            index += 1
-        ) {
-            const config =
-                await tryWhatsNewStaticUrl(
-                    paths[
-                        index
-                    ]
-                );
-
-            if (config) {
-                return config;
-            }
-        }
-
         try {
             const config =
                 await requestData(
@@ -1633,30 +1552,68 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             }
         } catch (error) {
             console.warn(
-                "PornPics What's New backend fallback failed",
+                "PornPics What's New backend load failed",
                 error
             );
         }
 
-        if (
-            whatsNewAttemptCount
-            >= 2
-        ) {
-            return {
-                enabled:
-                    true,
-                title:
-                    "What's new in {version}",
-                intro:
-                    "PornPics Importer has been updated.",
-                items: [
-                    "Improved performer detection and metadata handling.",
-                    "The full update text can be customized in assets/whats-new.json."
-                ]
-            };
+        const cacheBust =
+            String.fromCharCode(
+                63
+            )
+            + "v="
+            + encodeURIComponent(
+                pp_VERSION
+            )
+            + "&t="
+            + String(
+                Date.now()
+            );
+
+        try {
+            const response =
+                await fetch(
+                    WHATS_NEW_URL
+                    + cacheBust,
+                    {
+                        cache:
+                            "no-store",
+                        credentials:
+                            "same-origin"
+                    }
+                );
+
+            if (response.ok) {
+                const config =
+                    await response.json();
+
+                if (
+                    config
+                    && typeof config
+                        === "object"
+                ) {
+                    return config;
+                }
+            }
+        } catch (error) {
+            console.warn(
+                "PornPics What's New static load failed",
+                error
+            );
         }
 
-        return null;
+        return {
+            enabled:
+                true,
+            title:
+                "What's new in {version}",
+            intro:
+                "PornPics Importer has been updated.",
+            items: [
+                "Performer detection has been rebuilt around PornPics gallery metadata.",
+                "The update notes file can be edited in assets/whats-new.json."
+            ]
+        };
     }
 
     async function checkWhatsNewPopup() {
@@ -1676,24 +1633,6 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             return;
         }
 
-        const now =
-            Date.now();
-
-        if (
-            whatsNewLastAttemptAt
-            && now
-                - whatsNewLastAttemptAt
-                < 3500
-        ) {
-            return;
-        }
-
-        whatsNewLastAttemptAt =
-            now;
-
-        whatsNewAttemptCount +=
-            1;
-
         whatsNewCheckInFlight =
             true;
 
@@ -1701,13 +1640,10 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             const config =
                 await loadWhatsNewConfig();
 
-            if (!config) {
-                return;
-            }
-
             if (
-                config.enabled
-                === false
+                config
+                && config.enabled
+                    === false
             ) {
                 whatsNewCheckedThisPage =
                     true;
@@ -1720,6 +1656,11 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             showWhatsNewPopup(
                 config
             );
+        } catch (error) {
+            console.error(
+                "PornPics What's New failed",
+                error
+            );
         } finally {
             whatsNewCheckInFlight =
                 false;
@@ -1727,14 +1668,11 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     }
 
     function scheduleWhatsNewPopup() {
-        if (whatsNewCheckedThisPage) {
+        if (
+            whatsNewCheckedThisPage
+            || whatsNewTimer
+        ) {
             return;
-        }
-
-        if (whatsNewTimer) {
-            window.clearTimeout(
-                whatsNewTimer
-            );
         }
 
         whatsNewTimer =
@@ -1745,7 +1683,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
                     checkWhatsNewPopup();
                 },
-                1350
+                1250
             );
     }
 
@@ -1909,6 +1847,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
 
             showPornPicsSplashOnce();
+            scheduleWhatsNewPopup();
 
             const existingWhatsNewButton =
                 content.querySelector(
@@ -6775,7 +6714,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             && !currentPreflight.skip_performers
         ) {
             performers = Array.from(
-                scene.performers || []
+                scene.assignable_performers
+                || scene.performers
+                || []
             );
         }
 
@@ -12053,18 +11994,5 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     registerGlobalPornPicsRoute();
     startGlobalNavObserver();
     injectGlobalNavLink();
-    scheduleWhatsNewPopup();
-
-    window.setInterval(
-        function () {
-            if (
-                !whatsNewCheckedThisPage
-            ) {
-                checkWhatsNewPopup();
-            }
-        },
-        5000
-    );
-
     setInterval(inject, 500);
 })();
