@@ -124,7 +124,7 @@ class Stash:
             "Content-Type":
                 "application/json",
             "User-Agent":
-                "PornPics-Importer/2.3.2"
+                "PornPics-Importer/2.3.3"
         }
 
         api_key = _connection_value(

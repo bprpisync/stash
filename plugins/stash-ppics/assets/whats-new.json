@@ -1,7 +1,7 @@
 {
   "enabled": true,
-  "version": "v2.3.2",
-  "title": "What's new in v2.3.2",
+  "version": "v2.3.3",
+  "title": "What's new in v2.3.3",
   "intro": "This update improves performer detection and makes image metadata selection more automatic.",
   "items": [
     "Added a fallback that reads performer names directly from the visible PornPics Models section, even when the model is not a normal performer link.",

@@ -3025,6 +3025,165 @@ class PPics:
 
         return result
 
+    def _normalized_title_match_text(
+        self,
+        value
+    ):
+        value = unescape(
+            str(
+                value or ""
+            )
+        ).casefold()
+
+        value = re.sub(
+            r"[^a-z0-9]+",
+            " ",
+            value
+        )
+
+        return " ".join(
+            value.split()
+        )
+
+    def _performers_from_gallery_title(
+        self,
+        title
+    ):
+        title_text = (
+            self._normalized_title_match_text(
+                title
+            )
+        )
+
+        if not title_text:
+            return []
+
+        padded_title = (
+            " "
+            + title_text
+            + " "
+        )
+
+        try:
+            index = self.build_context_index()
+        except Exception:
+            index = self._load_search_index_cache()
+
+        if not index:
+            return []
+
+        candidates = []
+
+        for item in (
+            index.get(
+                "items"
+            )
+            or []
+        ):
+            if (
+                item.get(
+                    "type"
+                )
+                != "performer"
+            ):
+                continue
+
+            label = self._clean_person_name(
+                item.get(
+                    "label"
+                )
+            )
+
+            if not label:
+                continue
+
+            normalized = (
+                self._normalized_title_match_text(
+                    label
+                )
+            )
+
+            if not normalized:
+                continue
+
+            needle = (
+                " "
+                + normalized
+                + " "
+            )
+
+            position = padded_title.find(
+                needle
+            )
+
+            if position < 0:
+                continue
+
+            candidates.append(
+                (
+                    position,
+                    -len(
+                        normalized
+                    ),
+                    label
+                )
+            )
+
+        candidates.sort(
+            key=lambda row: (
+                row[0],
+                row[1],
+                row[2].casefold()
+            )
+        )
+
+        result = []
+        normalized_result = []
+
+        for (
+            position,
+            negative_length,
+            name
+        ) in candidates:
+            normalized_name = (
+                self._normalized_title_match_text(
+                    name
+                )
+            )
+
+            shadowed = False
+
+            for existing in normalized_result:
+                if (
+                    normalized_name
+                    != existing
+                    and (
+                        " "
+                        + normalized_name
+                        + " "
+                    )
+                    in (
+                        " "
+                        + existing
+                        + " "
+                    )
+                ):
+                    shadowed = True
+                    break
+
+            if shadowed:
+                continue
+
+            if name not in result:
+                result.append(
+                    name
+                )
+                normalized_result.append(
+                    normalized_name
+                )
+
+        return result
+
     def parse_gallery_html(
         self,
         html
@@ -3103,6 +3262,22 @@ class PPics:
                 data[
                     "performers"
                 ] = linked
+
+        if not data.get(
+            "performers"
+        ):
+            title_performers = (
+                self._performers_from_gallery_title(
+                    data.get(
+                        "title"
+                    )
+                )
+            )
+
+            if title_performers:
+                data[
+                    "performers"
+                ] = title_performers
 
         return data
 
