@@ -1296,18 +1296,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         const title =
             String(
                 config.title
-                || (
-                    "What's new in "
-                    + version
-                )
-            )
-            .split(
-                "{version}"
-            )
-            .join(
-                version
-            )
-            .trim();
+                || ""
+            ).trim();
 
         const intro =
             String(
@@ -1327,9 +1317,18 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 || ""
             ).trim();
 
+        let titleHtml = "";
         let introHtml = "";
         let bodyHtml = "";
         let footerHtml = "";
+
+        if (title) {
+            titleHtml = `
+                <h2>
+                    ${escapeHtml(title)}
+                </h2>
+            `;
+        }
 
         if (intro) {
             introHtml = `
@@ -1355,6 +1354,21 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             `;
         }
 
+        const itemsHtml =
+            whatsNewItemsHtml(
+                config.items
+            );
+
+        if (
+            !titleHtml
+            && !introHtml
+            && !bodyHtml
+            && !itemsHtml
+            && !footerHtml
+        ) {
+            return;
+        }
+
         const popup =
             document.createElement(
                 "div"
@@ -1376,10 +1390,12 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             "true"
         );
 
-        popup.setAttribute(
-            "aria-label",
-            title
-        );
+        if (title) {
+            popup.setAttribute(
+                "aria-label",
+                title
+            );
+        }
 
         popup.innerHTML = `
             <div class="ppics-whats-new-card">
@@ -1391,17 +1407,10 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                     ×
                 </button>
 
-                <div class="ppics-whats-new-eyebrow">
-                    PornPics Importer
-                </div>
-
-                <h2>
-                    ${escapeHtml(title)}
-                </h2>
-
+                ${titleHtml}
                 ${introHtml}
                 ${bodyHtml}
-                ${whatsNewItemsHtml(config.items)}
+                ${itemsHtml}
                 ${footerHtml}
 
                 <div class="ppics-whats-new-actions">
@@ -1551,69 +1560,13 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 return config;
             }
         } catch (error) {
-            console.warn(
-                "PornPics What's New backend load failed",
+            console.error(
+                "PornPics What's New JSON could not be loaded",
                 error
             );
         }
 
-        const cacheBust =
-            String.fromCharCode(
-                63
-            )
-            + "v="
-            + encodeURIComponent(
-                pp_VERSION
-            )
-            + "&t="
-            + String(
-                Date.now()
-            );
-
-        try {
-            const response =
-                await fetch(
-                    WHATS_NEW_URL
-                    + cacheBust,
-                    {
-                        cache:
-                            "no-store",
-                        credentials:
-                            "same-origin"
-                    }
-                );
-
-            if (response.ok) {
-                const config =
-                    await response.json();
-
-                if (
-                    config
-                    && typeof config
-                        === "object"
-                ) {
-                    return config;
-                }
-            }
-        } catch (error) {
-            console.warn(
-                "PornPics What's New static load failed",
-                error
-            );
-        }
-
-        return {
-            enabled:
-                true,
-            title:
-                "What's new in {version}",
-            intro:
-                "PornPics Importer has been updated.",
-            items: [
-                "Performer detection has been rebuilt around PornPics gallery metadata.",
-                "The update notes file can be edited in assets/whats-new.json."
-            ]
-        };
+        return null;
     }
 
     async function checkWhatsNewPopup() {
@@ -1640,10 +1593,13 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             const config =
                 await loadWhatsNewConfig();
 
+            if (!config) {
+                return;
+            }
+
             if (
-                config
-                && config.enabled
-                    === false
+                config.enabled
+                === false
             ) {
                 whatsNewCheckedThisPage =
                     true;
@@ -6565,14 +6521,25 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                             Waiting for metadata decisions
                         </small>
 
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-secondary ppics-image-meta-select-all"
-                            data-meta-kind="${escapeHtml(kind)}"
-                            data-meta-name="${escapeHtml(name)}"
-                        >
-                            Select all
-                        </button>
+                        <div class="ppics-image-meta-bulk-actions">
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-secondary ppics-image-meta-select-all"
+                                data-meta-kind="${escapeHtml(kind)}"
+                                data-meta-name="${escapeHtml(name)}"
+                            >
+                                Select all
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-secondary ppics-image-meta-deselect-all"
+                                data-meta-kind="${escapeHtml(kind)}"
+                                data-meta-name="${escapeHtml(name)}"
+                            >
+                                Deselect all
+                            </button>
+                        </div>
                     </div>
                 </th>
             `;
@@ -6730,7 +6697,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                     "tag",
                     tags,
                     "Tags per image",
-                    "Matched or approved tags are selected on all photos by default. Deselect a tag on photos where it does not apply. Select all restores one tag across the whole scene."
+                    "Matched or approved tags are selected on all photos by default. Use Select all or Deselect all for a whole tag column, then fine-tune individual photos."
                 );
         }
 
@@ -6741,7 +6708,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                     "performer",
                     performers,
                     "Performers per image",
-                    "Matched or approved performers are selected on all photos by default. Deselect a performer on photos where they are not visible. Select all restores one performer across the whole scene."
+                    "Matched or approved performers are selected on all photos by default. Use Select all or Deselect all for a whole performer column, then fine-tune individual photos."
                 );
         }
 
@@ -6783,7 +6750,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             )
             + '"]';
 
-        const button =
+        const selectButton =
             matrix.querySelector(
                 '.ppics-image-meta-select-all[data-meta-kind="' +
                 CSS.escape(
@@ -6796,9 +6763,18 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 + '"]'
             );
 
-        if (!button) {
-            return;
-        }
+        const deselectButton =
+            matrix.querySelector(
+                '.ppics-image-meta-deselect-all[data-meta-kind="' +
+                CSS.escape(
+                    String(kind)
+                )
+                + '"][data-meta-name="' +
+                CSS.escape(
+                    String(name)
+                )
+                + '"]'
+            );
 
         const inputs =
             Array.from(
@@ -6812,15 +6788,18 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
 
         if (!inputs.length) {
-            button.disabled =
-                true;
-            button.textContent =
-                "Unavailable";
+            if (selectButton) {
+                selectButton.disabled =
+                    true;
+            }
+
+            if (deselectButton) {
+                deselectButton.disabled =
+                    true;
+            }
+
             return;
         }
-
-        button.disabled =
-            false;
 
         const allSelected =
             inputs.every(
@@ -6829,12 +6808,21 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 }
             );
 
-        if (allSelected) {
-            button.textContent =
-                "All selected";
-        } else {
-            button.textContent =
-                "Select all";
+        const noneSelected =
+            inputs.every(
+                function (input) {
+                    return !input.checked;
+                }
+            );
+
+        if (selectButton) {
+            selectButton.disabled =
+                allSelected;
+        }
+
+        if (deselectButton) {
+            deselectButton.disabled =
+                noneSelected;
         }
     }
 
@@ -6940,6 +6928,46 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                             if (!input.disabled) {
                                 input.checked =
                                     true;
+                            }
+                        });
+
+                        updateImageMetaSelectAllState(
+                            matrix,
+                            kind,
+                            name
+                        );
+                    }
+                );
+            });
+
+            matrix.querySelectorAll(
+                ".ppics-image-meta-deselect-all"
+            ).forEach(function (button) {
+                button.addEventListener(
+                    "click",
+                    function () {
+                        const kind =
+                            button.dataset.metaKind
+                            || "";
+
+                        const name =
+                            button.dataset.metaName
+                            || "";
+
+                        matrix.querySelectorAll(
+                            '.ppics-image-meta-checkbox[data-meta-kind="' +
+                            CSS.escape(
+                                String(kind)
+                            )
+                            + '"][data-meta-name="' +
+                            CSS.escape(
+                                String(name)
+                            )
+                            + '"]'
+                        ).forEach(function (input) {
+                            if (!input.disabled) {
+                                input.checked =
+                                    false;
                             }
                         });
 

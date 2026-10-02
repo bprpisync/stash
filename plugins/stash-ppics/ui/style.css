@@ -4287,3 +4287,28 @@
     margin-left: auto;
     align-self: flex-start;
 }
+
+
+/* v2.4 - tag/performer column bulk actions */
+.ppics-image-meta-bulk-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.3rem;
+    margin-top: 0.18rem;
+}
+
+.ppics-image-meta-bulk-actions .btn {
+    width: 100%;
+    min-width: 0;
+    min-height: 30px;
+    margin: 0;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+    font-size: 0.62rem;
+    white-space: nowrap;
+}
+
+.ppics-image-meta-deselect-all:disabled,
+.ppics-image-meta-select-all:disabled {
+    opacity: 0.45;
+}
