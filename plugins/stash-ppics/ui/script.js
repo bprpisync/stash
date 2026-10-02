@@ -1,4 +1,4 @@
-const pp_VERSION = "v2.3";
+const pp_VERSION = "v2.3.1";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -6373,6 +6373,15 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         let headers = "";
+        let defaultChecked = "";
+
+        if (
+            kind ===
+            "performer"
+        ) {
+            defaultChecked =
+                "checked";
+        }
 
         names.forEach(function (name) {
             headers += `
@@ -6430,6 +6439,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                                 data-meta-name="${escapeHtml(name)}"
                                 data-scene-url="${escapeHtml(scene.url)}"
                                 data-source-url="${escapeHtml(sourceUrl)}"
+                                ${defaultChecked}
                             >
 
                             <span aria-hidden="true">
@@ -8658,51 +8668,55 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             const performerImageMap = {};
 
             container.querySelectorAll(
-                ".ppics-image-meta-row"
-            ).forEach(function (imageRow) {
-                const sourceUrl =
-                    imageRow.dataset.sourceUrl;
+                ".ppics-image-meta-matrix"
+            ).forEach(function (matrix) {
+                const kind =
+                    matrix.dataset.metaKind
+                    || "";
 
-                if (!sourceUrl) {
-                    return;
-                }
+                matrix.querySelectorAll(
+                    ".ppics-image-meta-row"
+                ).forEach(function (imageRow) {
+                    const sourceUrl =
+                        imageRow.dataset.sourceUrl;
 
-                const tagNames = [];
-                const performerNames = [];
-
-                imageRow.querySelectorAll(
-                    ".ppics-image-meta-checkbox"
-                ).forEach(function (input) {
-                    if (!input.checked) {
+                    if (!sourceUrl) {
                         return;
                     }
 
+                    const names = [];
+
+                    imageRow.querySelectorAll(
+                        ".ppics-image-meta-checkbox"
+                    ).forEach(function (input) {
+                        if (
+                            input.checked
+                            && !input.disabled
+                        ) {
+                            names.push(
+                                input.dataset.metaName
+                            );
+                        }
+                    });
+
                     if (
-                        input.dataset.metaKind ===
+                        kind ===
                         "tag"
                     ) {
-                        tagNames.push(
-                            input.dataset.metaName
-                        );
+                        tagImageMap[
+                            sourceUrl
+                        ] = names;
                     }
 
                     if (
-                        input.dataset.metaKind ===
+                        kind ===
                         "performer"
                     ) {
-                        performerNames.push(
-                            input.dataset.metaName
-                        );
+                        performerImageMap[
+                            sourceUrl
+                        ] = names;
                     }
                 });
-
-                tagImageMap[
-                    sourceUrl
-                ] = tagNames;
-
-                performerImageMap[
-                    sourceUrl
-                ] = performerNames;
             });
 
             result.image_tag_assignments[

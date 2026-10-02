@@ -3424,7 +3424,8 @@ def finalize_import(stash, import_id, request_id=None):
             try:
                 result = stash.update_image_metadata(
                     image=image,
-                    source_url=source_url,
+                    page_url=scene_url,
+                    title=scene_title,
                     performer_ids=entry.get("performer_ids") or [],
                     studio_id=metadata.get("studio_id"),
                     tag_ids=entry.get("tag_ids") or [],
@@ -3467,7 +3468,7 @@ def finalize_import(stash, import_id, request_id=None):
 
             image_result = {
                 "id": result.get("id"),
-                "title": result.get("title") or imageFilename(source_url),
+                "title": result.get("title") or scene_title,
                 "source_url": source_url,
                 "gallery_id": gallery_id,
                 "path": current_path

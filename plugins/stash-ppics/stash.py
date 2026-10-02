@@ -124,7 +124,7 @@ class Stash:
             "Content-Type":
                 "application/json",
             "User-Agent":
-                "PornPics-Importer/1.0.1"
+                "PornPics-Importer/2.3.1"
         }
 
         api_key = _connection_value(
@@ -1328,7 +1328,8 @@ class Stash:
     def update_image_metadata(
         self,
         image,
-        source_url,
+        page_url,
+        title,
         performer_ids,
         studio_id=None,
         tag_ids=None,
@@ -1350,62 +1351,179 @@ class Stash:
         }
         """
 
-        existing_urls = image.get("urls") or []
+        existing_urls = image.get(
+            "urls"
+        ) or []
+
         existing_performers = [
             item["id"]
-            for item in (image.get("performers") or [])
-            if item.get("id")
+            for item in (
+                image.get(
+                    "performers"
+                )
+                or []
+            )
+            if item.get(
+                "id"
+            )
         ]
+
         existing_tags = [
             item["id"]
-            for item in (image.get("tags") or [])
-            if item.get("id")
+            for item in (
+                image.get(
+                    "tags"
+                )
+                or []
+            )
+            if item.get(
+                "id"
+            )
         ]
+
         existing_galleries = [
             item["id"]
-            for item in (image.get("galleries") or [])
-            if item.get("id")
+            for item in (
+                image.get(
+                    "galleries"
+                )
+                or []
+            )
+            if item.get(
+                "id"
+            )
         ]
 
-        urls = list(existing_urls)
+        urls = []
 
-        if source_url and source_url not in urls:
-            urls.append(source_url)
+        page_url = str(
+            page_url or ""
+        ).strip()
 
-        performers = list(dict.fromkeys(
-            existing_performers + list(performer_ids or [])
-        ))
-        tags = list(dict.fromkeys(
-            existing_tags + list(tag_ids or [])
-        ))
-        galleries = list(existing_galleries)
+        if page_url:
+            urls.append(
+                page_url
+            )
 
-        if gallery_id and gallery_id not in galleries:
-            galleries.append(gallery_id)
+        for existing_url in existing_urls:
+            current_url = str(
+                existing_url or ""
+            ).strip()
+
+            if not current_url:
+                continue
+
+            lowered = current_url.casefold()
+
+            is_ppics_cdn = (
+                "cdni.pornpics.com/"
+                in lowered
+                or "cdn.pornpics.com/"
+                in lowered
+            )
+
+            if is_ppics_cdn:
+                continue
+
+            if current_url not in urls:
+                urls.append(
+                    current_url
+                )
+
+        performers = list(
+            dict.fromkeys(
+                existing_performers
+                + list(
+                    performer_ids
+                    or []
+                )
+            )
+        )
+
+        tags = list(
+            dict.fromkeys(
+                existing_tags
+                + list(
+                    tag_ids
+                    or []
+                )
+            )
+        )
+
+        galleries = list(
+            existing_galleries
+        )
+
+        if (
+            gallery_id
+            and gallery_id
+            not in galleries
+        ):
+            galleries.append(
+                gallery_id
+            )
 
         image_input = {
-            "id": image["id"],
-            "urls": urls,
-            "performer_ids": performers,
-            "tag_ids": tags,
-            "gallery_ids": galleries
+            "id":
+                image["id"],
+            "urls":
+                urls,
+            "performer_ids":
+                performers,
+            "tag_ids":
+                tags,
+            "gallery_ids":
+                galleries
         }
 
-        existing_studio = image.get("studio")
+        title = str(
+            title or ""
+        ).strip()
 
-        if existing_studio and existing_studio.get("id"):
-            image_input["studio_id"] = existing_studio["id"]
+        if title:
+            image_input[
+                "title"
+            ] = title
+
+        existing_studio = image.get(
+            "studio"
+        )
+
+        if (
+            existing_studio
+            and existing_studio.get(
+                "id"
+            )
+        ):
+            image_input[
+                "studio_id"
+            ] = existing_studio[
+                "id"
+            ]
+
         elif studio_id:
-            image_input["studio_id"] = studio_id
+            image_input[
+                "studio_id"
+            ] = studio_id
 
         if organized is not None:
-            image_input["organized"] = bool(organized)
+            image_input[
+                "organized"
+            ] = bool(
+                organized
+            )
 
-        data = self.query(query, {
-            "input": image_input
-        })
+        data = self.query(
+            query,
+            {
+                "input":
+                    image_input
+            }
+        )
 
-        return data["imageUpdate"]
+        return data[
+            "imageUpdate"
+        ]
 
     def _normalize_title(self, value):
         value = str(value or "").casefold()
