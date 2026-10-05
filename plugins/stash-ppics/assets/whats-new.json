@@ -1,13 +1,10 @@
 {
   "enabled": true,
-  "version": "v2.4",
-  "title": "What's new in v2.4",
-  "intro": "This update improves performer detection and makes image metadata selection more automatic.",
+  "version": "v2.4.1",
+  "title": "What's new in v2.4.1",
+  "intro": "Small update",
   "items": [
-    "Added a fallback that reads performer names directly from the visible PornPics Models section, even when the model is not a normal performer link.",
-    "Matched or approved tags are now selected on all chosen photos by default.",
-    "Matched or approved performers are selected on all chosen photos by default.",
-    "You can still deselect individual tags or performers per photo."
+    "Fixed selected images not saving when viewing a different set (issue by @Nonoty)"
   ],
-  "footer": " "
+  "footer": ""
 }

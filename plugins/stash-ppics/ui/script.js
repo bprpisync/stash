@@ -1,4 +1,4 @@
-const pp_VERSION = "v2.4";
+const pp_VERSION = "v2.4.1";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -15,6 +15,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         "pornpics-importer-whats-new-seen-"
         + pp_VERSION;
     const SELECTION_STORAGE_PREFIX = "pornpics-importer-selection:";
+    const SELECTION_STORAGE_KEY =
+        SELECTION_STORAGE_PREFIX
+        + "session";
     const SESSION_RESET_TOKEN_KEY = "pornpics-importer-session-reset-token";
     const GLOBAL_ROUTE_PATH = "/plugin/pornpics";
     const GLOBAL_SAFE_URL =
@@ -2534,33 +2537,136 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         true
     );
 
-    function selectionStorageKey(identity) {
-        return (
-            SELECTION_STORAGE_PREFIX +
-            String(identity || "").trim().toLowerCase()
+    function selectionStorageKey() {
+        return SELECTION_STORAGE_KEY;
+    }
+
+    function storedSelectionItems() {
+        const merged =
+            new Map();
+
+        try {
+            const keys = [];
+
+            for (
+                let index = 0;
+                index < window.sessionStorage.length;
+                index += 1
+            ) {
+                const key =
+                    window.sessionStorage.key(
+                        index
+                    );
+
+                if (
+                    key
+                    && key.indexOf(
+                        SELECTION_STORAGE_PREFIX
+                    ) === 0
+                ) {
+                    keys.push(
+                        key
+                    );
+                }
+            }
+
+            keys.forEach(function (key) {
+                const raw =
+                    window.sessionStorage.getItem(
+                        key
+                    );
+
+                if (!raw) {
+                    return;
+                }
+
+                let stored = null;
+
+                try {
+                    stored =
+                        JSON.parse(
+                            raw
+                        );
+                } catch (error) {
+                    stored = null;
+                }
+
+                if (!Array.isArray(stored)) {
+                    return;
+                }
+
+                stored.forEach(function (item) {
+                    if (
+                        item
+                        && item.key
+                    ) {
+                        merged.set(
+                            item.key,
+                            item
+                        );
+                    }
+                });
+            });
+        } catch (error) {
+            console.warn(
+                "PornPics selection state could not be restored",
+                error
+            );
+        }
+
+        return Array.from(
+            merged.values()
         );
     }
 
     function saveSelections() {
-        const identity = currentBrowseIdentity();
-
-        if (!identity) {
-            return;
-        }
-
         const stored = [];
 
         selections.forEach(function (item) {
-            stored.push(item);
+            stored.push(
+                item
+            );
         });
 
         try {
             window.sessionStorage.setItem(
-                selectionStorageKey(
-                    identity
-                ),
-                JSON.stringify(stored)
+                selectionStorageKey(),
+                JSON.stringify(
+                    stored
+                )
             );
+
+            const staleKeys = [];
+
+            for (
+                let index = 0;
+                index < window.sessionStorage.length;
+                index += 1
+            ) {
+                const key =
+                    window.sessionStorage.key(
+                        index
+                    );
+
+                if (
+                    key
+                    && key.indexOf(
+                        SELECTION_STORAGE_PREFIX
+                    ) === 0
+                    && key !==
+                        SELECTION_STORAGE_KEY
+                ) {
+                    staleKeys.push(
+                        key
+                    );
+                }
+            }
+
+            staleKeys.forEach(function (key) {
+                window.sessionStorage.removeItem(
+                    key
+                );
+            });
         } catch (error) {
             console.warn(
                 "PornPics selection state could not be saved",
@@ -2569,62 +2675,60 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
     }
 
-    function restoreSelections(performer) {
-        selections.clear();
+    function restoreSelections() {
+        const stored =
+            storedSelectionItems();
 
-        if (!performer) {
-            return;
-        }
-
-        try {
-            const raw = window.sessionStorage.getItem(
-                selectionStorageKey(performer)
-            );
-
-            if (!raw) {
-                return;
+        stored.forEach(function (item) {
+            if (
+                item
+                && item.key
+            ) {
+                selections.set(
+                    item.key,
+                    item
+                );
             }
+        });
 
-            const stored = JSON.parse(raw);
-
-            if (!Array.isArray(stored)) {
-                return;
-            }
-
-            stored.forEach(function (item) {
-                if (
-                    item &&
-                    item.key
-                ) {
-                    selections.set(
-                        item.key,
-                        item
-                    );
-                }
-            });
-        } catch (error) {
-            console.warn(
-                "PornPics selection state could not be restored",
-                error
-            );
+        if (stored.length) {
+            saveSelections();
         }
     }
 
     function clearStoredSelections() {
         selections.clear();
 
-        const identity = currentBrowseIdentity();
-
-        if (!identity) {
-            return;
-        }
-
         try {
-            window.sessionStorage.removeItem(
-                selectionStorageKey(
-                    identity
-                )
-            );
+            const keys = [];
+
+            for (
+                let index = 0;
+                index < window.sessionStorage.length;
+                index += 1
+            ) {
+                const key =
+                    window.sessionStorage.key(
+                        index
+                    );
+
+                if (
+                    key
+                    && key.indexOf(
+                        SELECTION_STORAGE_PREFIX
+                    ) === 0
+                ) {
+                    keys.push(
+                        key
+                    );
+                }
+            }
+
+            keys.forEach(function (key) {
+                window.sessionStorage.removeItem(
+                    key
+                );
+            });
         } catch (error) {
             console.warn(
                 "PornPics selection state could not be cleared",
@@ -4009,6 +4113,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     }
 
     function renderScenes(data, addHistory) {
+        restoreSelections();
         stopLoadingSequence();
         metadataHydrationToken += 1;
         currentSceneData = null;
@@ -4658,6 +4763,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     }
 
     function renderScene(scene, addHistory) {
+        restoreSelections();
+
         if (
             scene
             && scene.age_verification_required
@@ -10328,9 +10435,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 currentPerformerName = null;
             }
 
-            restoreSelections(
-                newKey
-            );
+            restoreSelections();
 
             sceneCache.clear();
             pageCache.clear();
@@ -10478,11 +10583,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         currentPerformerName =
             null;
 
-        restoreSelections(
-            browseContextKey(
-                context
-            )
-        );
+        restoreSelections();
 
         sceneCache.clear();
         pageCache.clear();
