@@ -1,7 +1,7 @@
 {
   "enabled": true,
-  "version": "v2.4.1",
-  "title": "What's new in v2.4.1",
+  "version": "v2.4.2",
+  "title": "What's new in v2.4.2",
   "intro": "Small update",
   "items": [
     "Fixed selected images not saving when viewing a different set (issue by @Nonoty)"
