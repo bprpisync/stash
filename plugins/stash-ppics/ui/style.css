@@ -4312,3 +4312,405 @@
 .ppics-image-meta-select-all:disabled {
     opacity: 0.45;
 }
+
+
+/* PornPics Importer v3.0 discovery / browse redesign */
+.ppics-global-browser {
+    max-width: 1540px;
+    margin: 0 auto;
+}
+
+.ppics-global-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 1.15rem 1.2rem 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 15% 0%, rgba(123, 91, 255, 0.18), transparent 42%),
+        rgba(22, 22, 27, 0.72);
+}
+
+.ppics-global-hero h2 {
+    margin-bottom: 0.25rem;
+    font-size: clamp(1.7rem, 3vw, 2.45rem);
+}
+
+.ppics-global-search-form {
+    margin-top: 0.8rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(15, 15, 18, 0.7);
+}
+
+.ppics-discovery-home {
+    display: grid;
+    gap: 1.35rem;
+    margin-top: 1rem;
+}
+
+.ppics-discovery-intro {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(105, 76, 255, 0.13), rgba(255, 255, 255, 0.025));
+}
+
+.ppics-discovery-intro h3 {
+    margin: 0.2rem 0 0.25rem;
+    font-size: 1.25rem;
+}
+
+.ppics-discovery-intro p,
+.ppics-discovery-section-head p {
+    margin: 0;
+    color: var(--text-muted, #a8a8b3);
+}
+
+.ppics-discovery-kicker {
+    display: inline-flex;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+.ppics-discovery-section,
+.ppics-discovery-browse {
+    min-width: 0;
+}
+
+.ppics-discovery-section-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.7rem;
+}
+
+.ppics-discovery-section-head h3 {
+    margin: 0;
+    font-size: 1.15rem;
+}
+
+.ppics-discovery-section-head p {
+    margin-top: 0.15rem;
+    font-size: 0.84rem;
+}
+
+.ppics-discovery-rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(190px, 1fr);
+    gap: 0.72rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+    padding: 0.08rem 0.05rem 0.55rem;
+}
+
+.ppics-discovery-card,
+.ppics-discovery-scene-card {
+    min-width: 0;
+    scroll-snap-align: start;
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+    color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(25, 25, 30, 0.78);
+    transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.ppics-discovery-card:hover,
+.ppics-discovery-scene-card:hover,
+.ppics-global-result-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(136, 108, 255, 0.56);
+    background: rgba(34, 33, 42, 0.95);
+}
+
+.ppics-discovery-card-image,
+.ppics-discovery-scene-image,
+.ppics-global-result-image {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 16 / 10;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.ppics-discovery-card-featured .ppics-discovery-card-image {
+    aspect-ratio: 16 / 9;
+}
+
+.ppics-discovery-card-compact .ppics-discovery-card-image {
+    aspect-ratio: 4 / 3;
+}
+
+.ppics-discovery-card-image img,
+.ppics-discovery-scene-image img,
+.ppics-global-result-image img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.ppics-discovery-card-placeholder,
+.ppics-global-result-placeholder {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    font-size: 2.1rem;
+    font-weight: 900;
+    background:
+        radial-gradient(circle at 30% 25%, rgba(138, 106, 255, 0.3), transparent 42%),
+        rgba(255, 255, 255, 0.025);
+}
+
+.ppics-discovery-type {
+    position: absolute;
+    left: 0.55rem;
+    bottom: 0.5rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(7, 7, 10, 0.78);
+    backdrop-filter: blur(8px);
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.ppics-discovery-card-copy {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.7rem 0.72rem 0.76rem;
+}
+
+.ppics-discovery-card-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.ppics-discovery-card-copy > span {
+    color: var(--text-muted, #aaaab4);
+    font-size: 0.72rem;
+}
+
+.ppics-discovery-reason {
+    color: rgba(186, 171, 255, 0.94) !important;
+}
+
+.ppics-directory-launch-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.72rem;
+}
+
+.ppics-directory-launch {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    text-align: left;
+    color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(25, 25, 30, 0.78);
+}
+
+.ppics-directory-launch:hover {
+    border-color: rgba(136, 108, 255, 0.56);
+}
+
+.ppics-directory-launch-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: rgba(125, 92, 255, 0.16);
+    font-weight: 900;
+}
+
+.ppics-directory-launch > span:nth-child(2) {
+    display: grid;
+    gap: 0.1rem;
+}
+
+.ppics-directory-launch small,
+.ppics-directory-launch span span {
+    color: var(--text-muted, #aaaab4);
+}
+
+.ppics-discovery-loading-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 72px;
+    padding: 0.9rem;
+}
+
+.ppics-discovery-skeleton-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
+.ppics-discovery-skeleton-card {
+    height: 190px;
+    overflow: hidden;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.ppics-discovery-skeleton-card span,
+.ppics-discovery-skeleton-card b,
+.ppics-discovery-skeleton-card i {
+    display: block;
+    margin: 0.65rem;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.ppics-discovery-skeleton-card span {
+    height: 118px;
+    margin: 0;
+    border-radius: 0;
+}
+
+.ppics-discovery-skeleton-card b {
+    width: 66%;
+    height: 12px;
+}
+
+.ppics-discovery-skeleton-card i {
+    width: 42%;
+    height: 9px;
+}
+
+.ppics-global-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+}
+
+.ppics-global-result-card {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+    color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(25, 25, 30, 0.78);
+}
+
+.ppics-global-result-copy {
+    padding: 0.72rem;
+}
+
+.ppics-global-result-copy strong {
+    display: block;
+    margin: 0.12rem 0 0.35rem;
+    font-size: 0.95rem;
+}
+
+.ppics-global-result-type {
+    display: inline-flex;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    opacity: 0.68;
+}
+
+.ppics-directory-browser {
+    max-width: 1540px;
+    margin: 0 auto;
+}
+
+.ppics-directory-head {
+    display: grid;
+    gap: 0.72rem;
+    margin-bottom: 1rem;
+}
+
+.ppics-directory-title-row {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.ppics-directory-title-row h2,
+.ppics-directory-title-row p {
+    margin: 0;
+}
+
+.ppics-directory-title-row p {
+    color: var(--text-muted, #aaaab4);
+}
+
+.ppics-directory-tools {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: 0.7rem;
+    align-items: center;
+}
+
+.ppics-directory-sort {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.ppics-directory-sort-button.active {
+    box-shadow: inset 0 0 0 1px rgba(150, 125, 255, 0.7);
+}
+
+.ppics-directory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.7rem;
+}
+
+.ppics-directory-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 0.8rem 0;
+}
+
+@media (max-width: 900px) {
+    .ppics-directory-launch-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ppics-directory-tools {
+        grid-template-columns: 1fr;
+    }
+
+    .ppics-discovery-skeleton-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ppics-discovery-rail {
+        grid-auto-columns: minmax(172px, 78vw);
+    }
+}

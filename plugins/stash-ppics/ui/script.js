@@ -1,4 +1,4 @@
-const pp_VERSION = "v2.4.2";
+const pp_VERSION = "v3.0";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -27,9 +27,14 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
     const GLOBAL_SEARCH_STORAGE_KEY =
         "pornpics-importer-global-search-state";
+    const DISCOVERY_HISTORY_KEY =
+        "pornpics-importer-discovery-history";
+    const DISCOVERY_PROFILE_KEY =
+        "pornpics-importer-discovery-profile";
 
     const selections = new Map();
     const sceneCache = new Map();
+    const contextPreviewCache = new Map();
     const pageCache = new Map();
     const importedSceneStatus = new Map();
     const importedImageStatus = new Map();
@@ -44,6 +49,13 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     let lastGlobalSearchState = null;
     let globalSearchTimer = null;
     let globalSearchSequence = 0;
+    let discoveryHomeCache = null;
+    let discoveryHomePromise = null;
+    let discoveryPreviewQueue = [];
+    let discoveryPreviewActive = 0;
+    let discoveryPreviewObserver = null;
+    let lastDirectoryState = null;
+    let directorySearchTimer = null;
     let sceneImportFilter = "all";
     let lastImportOptions = null;
     let lastImportSelectionPayload = [];
@@ -2342,6 +2354,22 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
         }
 
+        if (view.type === "directory") {
+            const data =
+                view.data || {};
+
+            return (
+                "directory:"
+                + String(data.type || "")
+                + ":"
+                + String(data.page || 1)
+                + ":"
+                + String(data.query || "")
+                + ":"
+                + String(data.sort || "popular")
+            );
+        }
+
         return view.type || "";
     }
 
@@ -2394,6 +2422,13 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 view.query,
                 view.searchType,
                 view.results,
+                false
+            );
+        }
+
+        if (view.type === "directory") {
+            renderDirectoryData(
+                view.data,
                 false
             );
         }
@@ -4109,6 +4144,34 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             `;
         }
 
+        if (
+            currentBrowseContext &&
+            currentBrowseContext.source === "home"
+        ) {
+            html += `
+                <button
+                    type="button"
+                    class="btn btn-secondary btn-sm ppics-back-discovery-home"
+                >
+                    ← PornPics home
+                </button>
+            `;
+        }
+
+        if (
+            currentBrowseContext &&
+            currentBrowseContext.source === "directory"
+        ) {
+            html += `
+                <button
+                    type="button"
+                    class="btn btn-secondary btn-sm ppics-back-directory"
+                >
+                    ← ${escapeHtml(directoryTitle(currentBrowseContext.type))}
+                </button>
+            `;
+        }
+
         return html;
     }
 
@@ -4393,6 +4456,52 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
         }
 
+        const backHomeButton =
+            document.querySelector(
+                ".ppics-back-discovery-home"
+            );
+
+        if (backHomeButton) {
+            backHomeButton.addEventListener(
+                "click",
+                function () {
+                    renderGlobalSearchPage(
+                        "",
+                        "all",
+                        [],
+                        true
+                    );
+                }
+            );
+        }
+
+        const backDirectoryButton =
+            document.querySelector(
+                ".ppics-back-directory"
+            );
+
+        if (backDirectoryButton) {
+            backDirectoryButton.addEventListener(
+                "click",
+                function () {
+                    if (lastDirectoryState) {
+                        renderDirectoryData(
+                            lastDirectoryState,
+                            true
+                        );
+                    } else {
+                        openDirectory(
+                            currentBrowseContext.type,
+                            1,
+                            "",
+                            "popular",
+                            true
+                        );
+                    }
+                }
+            );
+        }
+
         if (addHistory !== false) {
             recordView({
                 type: "scenes",
@@ -4565,8 +4674,17 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     async function openScene(scene) {
         try {
             if (sceneCache.has(scene.url)) {
+                const cachedScene =
+                    sceneCache.get(
+                        scene.url
+                    );
+
+                rememberSceneDiscovery(
+                    cachedScene
+                );
+
                 renderScene(
-                    sceneCache.get(scene.url),
+                    cachedScene,
                     true
                 );
                 return;
@@ -4595,6 +4713,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             data.scene.id = scene.id;
             data.scene.url = scene.url;
             sceneCache.set(scene.url, data.scene);
+            rememberSceneDiscovery(
+                data.scene
+            );
             renderScene(data.scene, true);
         } catch (error) {
             console.error(error);
@@ -10417,6 +10538,10 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     }
 
     async function startBrowseContext(context) {
+        rememberDiscoveryContext(
+            context
+        );
+
         const newKey = browseContextKey(
             context
         );
@@ -10668,6 +10793,1630 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
     }
 
+    function readDiscoveryHistory() {
+        try {
+            const raw =
+                window.localStorage.getItem(
+                    DISCOVERY_HISTORY_KEY
+                );
+
+            if (!raw) {
+                return [];
+            }
+
+            const value =
+                JSON.parse(
+                    raw
+                );
+
+            if (Array.isArray(value)) {
+                return value;
+            }
+        } catch (error) {
+            console.warn(
+                "PornPics discovery history could not be read",
+                error
+            );
+        }
+
+        return [];
+    }
+
+    function writeDiscoveryHistory(items) {
+        try {
+            window.localStorage.setItem(
+                DISCOVERY_HISTORY_KEY,
+                JSON.stringify(
+                    items
+                )
+            );
+        } catch (error) {
+            console.warn(
+                "PornPics discovery history could not be saved",
+                error
+            );
+        }
+    }
+
+    function rememberDiscoveryContext(context) {
+        if (
+            !context
+            || !context.type
+            || !context.value
+        ) {
+            return;
+        }
+
+        if (
+            context.type !== "tag"
+            && context.type !== "performer"
+            && context.type !== "studio"
+            && context.type !== "keyword"
+        ) {
+            return;
+        }
+
+        const key =
+            String(context.type)
+            + ":"
+            + String(context.value)
+                .trim()
+                .toLowerCase();
+
+        let items =
+            readDiscoveryHistory();
+
+        items = items.filter(
+            function (item) {
+                return item.key !== key;
+            }
+        );
+
+        items.unshift({
+            key: key,
+            type: context.type,
+            value: context.value,
+            label:
+                context.label
+                || context.value,
+            url:
+                context.url
+                || "",
+            thumbnail:
+                context.thumbnail
+                || "",
+            viewedAt:
+                Date.now()
+        });
+
+        writeDiscoveryHistory(
+            items.slice(
+                0,
+                18
+            )
+        );
+    }
+
+    function readDiscoveryProfile() {
+        try {
+            const raw =
+                window.localStorage.getItem(
+                    DISCOVERY_PROFILE_KEY
+                );
+
+            if (!raw) {
+                return {
+                    tags: {},
+                    studios: {},
+                    performers: {}
+                };
+            }
+
+            const value =
+                JSON.parse(
+                    raw
+                );
+
+            if (
+                value
+                && typeof value ===
+                    "object"
+            ) {
+                return value;
+            }
+        } catch (error) {
+            console.warn(
+                "PornPics discovery profile could not be read",
+                error
+            );
+        }
+
+        return {
+            tags: {},
+            studios: {},
+            performers: {}
+        };
+    }
+
+    function incrementDiscoveryProfile(
+        bucket,
+        name,
+        amount
+    ) {
+        name = String(
+            name || ""
+        ).trim();
+
+        if (!name) {
+            return;
+        }
+
+        const key =
+            name.toLowerCase();
+
+        if (!bucket[key]) {
+            bucket[key] = {
+                label: name,
+                score: 0
+            };
+        }
+
+        bucket[key].score +=
+            Number(
+                amount || 1
+            );
+    }
+
+    function rememberSceneDiscovery(scene) {
+        if (!scene) {
+            return;
+        }
+
+        const profile =
+            readDiscoveryProfile();
+
+        if (!profile.tags) {
+            profile.tags = {};
+        }
+
+        if (!profile.studios) {
+            profile.studios = {};
+        }
+
+        if (!profile.performers) {
+            profile.performers = {};
+        }
+
+        Array.from(
+            scene.tags || []
+        ).forEach(function (tag) {
+            incrementDiscoveryProfile(
+                profile.tags,
+                tag,
+                2
+            );
+        });
+
+        if (scene.studio) {
+            incrementDiscoveryProfile(
+                profile.studios,
+                scene.studio,
+                1
+            );
+        }
+
+        Array.from(
+            scene.performers || []
+        ).forEach(function (performer) {
+            incrementDiscoveryProfile(
+                profile.performers,
+                performer,
+                1
+            );
+        });
+
+        try {
+            window.localStorage.setItem(
+                DISCOVERY_PROFILE_KEY,
+                JSON.stringify(
+                    profile
+                )
+            );
+        } catch (error) {
+            console.warn(
+                "PornPics discovery profile could not be saved",
+                error
+            );
+        }
+    }
+
+    function recommendedDiscoveryItems(
+        home
+    ) {
+        const profile =
+            readDiscoveryProfile();
+
+        const scored = [];
+
+        Object.keys(
+            profile.tags || {}
+        ).forEach(function (key) {
+            const item =
+                profile.tags[key];
+
+            scored.push({
+                type: "tag",
+                value: item.label,
+                label: item.label,
+                url: "",
+                thumbnail: "",
+                scene_count_hint: null,
+                recommendation_reason:
+                    "Based on tags you viewed",
+                recommendation_score:
+                    Number(
+                        item.score || 0
+                    )
+            });
+        });
+
+        scored.sort(
+            function (left, right) {
+                return (
+                    right.recommendation_score
+                    - left.recommendation_score
+                );
+            }
+        );
+
+        const result =
+            scored.slice(
+                0,
+                10
+            );
+
+        if (result.length) {
+            return result;
+        }
+
+        return Array.from(
+            home.popular_tags || []
+        ).slice(
+            4,
+            12
+        ).map(function (item) {
+            return Object.assign(
+                {},
+                item,
+                {
+                    recommendation_reason:
+                        "Popular on PornPics"
+                }
+            );
+        });
+    }
+
+    function discoveryContextCard(
+        item,
+        size
+    ) {
+        size = String(
+            size || "standard"
+        );
+
+        let count = "";
+
+        if (item.scene_count_hint) {
+            count =
+                String(
+                    item.scene_count_hint
+                )
+                + " galleries";
+        }
+
+        let reason = "";
+
+        if (item.recommendation_reason) {
+            reason = `
+                <span class="ppics-discovery-reason">
+                    ${escapeHtml(item.recommendation_reason)}
+                </span>
+            `;
+        }
+
+        let image = `
+            <div class="ppics-discovery-card-placeholder">
+                ${escapeHtml(globalResultPlaceholder(item))}
+            </div>
+        `;
+
+        if (item.thumbnail) {
+            image = `
+                <img
+                    src="${escapeHtml(item.thumbnail)}"
+                    alt=""
+                    loading="lazy"
+                >
+            `;
+        }
+
+        let previewLoaded =
+            "0";
+
+        if (item.thumbnail) {
+            previewLoaded =
+                "1";
+        }
+
+        return `
+            <button
+                type="button"
+                class="ppics-discovery-card ppics-discovery-card-${escapeHtml(size)} ppics-context-preview-target"
+                data-context-type="${escapeHtml(item.type)}"
+                data-context-value="${escapeHtml(item.value)}"
+                data-context-label="${escapeHtml(item.label)}"
+                data-context-url="${escapeHtml(item.url || "")}"
+                data-context-source="home"
+                data-preview-loaded="${previewLoaded}"
+            >
+                <div class="ppics-discovery-card-image">
+                    ${image}
+                    <span class="ppics-discovery-type">
+                        ${escapeHtml(globalResultTypeLabel(item.type))}
+                    </span>
+                </div>
+
+                <div class="ppics-discovery-card-copy">
+                    <strong>
+                        ${escapeHtml(item.label)}
+                    </strong>
+
+                    ${reason}
+
+                    <span class="ppics-discovery-card-count">
+                        ${escapeHtml(count)}
+                    </span>
+                </div>
+            </button>
+        `;
+    }
+
+    function discoverySceneCard(scene) {
+        let image = `
+            <div class="ppics-discovery-card-placeholder">
+                P
+            </div>
+        `;
+
+        if (scene.thumbnail) {
+            image = `
+                <img
+                    src="${escapeHtml(scene.thumbnail)}"
+                    alt=""
+                    loading="lazy"
+                >
+            `;
+        }
+
+        return `
+            <button
+                type="button"
+                class="ppics-discovery-scene-card"
+                data-scene-id="${escapeHtml(scene.id || "")}"
+                data-scene-title="${escapeHtml(scene.title || "PornPics gallery")}"
+                data-scene-url="${escapeHtml(scene.url || "")}"
+                data-scene-thumbnail="${escapeHtml(scene.thumbnail || "")}"
+            >
+                <div class="ppics-discovery-scene-image">
+                    ${image}
+                    <span class="ppics-discovery-type">
+                        Gallery
+                    </span>
+                </div>
+
+                <div class="ppics-discovery-card-copy">
+                    <strong>
+                        ${escapeHtml(scene.title || "PornPics gallery")}
+                    </strong>
+
+                    <span>
+                        Open gallery →
+                    </span>
+                </div>
+            </button>
+        `;
+    }
+
+    function discoverySection(
+        title,
+        subtitle,
+        cards,
+        actionHtml
+    ) {
+        if (!cards) {
+            return "";
+        }
+
+        return `
+            <section class="ppics-discovery-section">
+                <div class="ppics-discovery-section-head">
+                    <div>
+                        <h3>
+                            ${escapeHtml(title)}
+                        </h3>
+
+                        <p>
+                            ${escapeHtml(subtitle)}
+                        </p>
+                    </div>
+
+                    ${actionHtml || ""}
+                </div>
+
+                <div class="ppics-discovery-rail">
+                    ${cards}
+                </div>
+            </section>
+        `;
+    }
+
+    function discoveryDirectoryButtons(
+        home
+    ) {
+        const counts =
+            home.directory_counts
+            || {};
+
+        const rows = [
+            {
+                type: "tag",
+                title: "All tags",
+                copy: "Browse every PornPics tag",
+                icon: "#"
+            },
+            {
+                type: "performer",
+                title: "Performers",
+                copy: "Browse the performer directory",
+                icon: "P"
+            },
+            {
+                type: "studio",
+                title: "Studios",
+                copy: "Browse channels and studios",
+                icon: "S"
+            }
+        ];
+
+        let html = "";
+
+        rows.forEach(function (row) {
+            const total =
+                Number(
+                    counts[row.type]
+                    || 0
+                );
+
+            let totalHtml = "";
+
+            if (total) {
+                totalHtml = `
+                    <span>
+                        ${escapeHtml(total)} entries
+                    </span>
+                `;
+            }
+
+            html += `
+                <button
+                    type="button"
+                    class="ppics-directory-launch"
+                    data-directory-type="${escapeHtml(row.type)}"
+                >
+                    <span class="ppics-directory-launch-icon">
+                        ${escapeHtml(row.icon)}
+                    </span>
+
+                    <span>
+                        <strong>
+                            ${escapeHtml(row.title)}
+                        </strong>
+
+                        <small>
+                            ${escapeHtml(row.copy)}
+                        </small>
+
+                        ${totalHtml}
+                    </span>
+
+                    <b>
+                        →
+                    </b>
+                </button>
+            `;
+        });
+
+        return `
+            <section class="ppics-discovery-browse">
+                <div class="ppics-discovery-section-head">
+                    <div>
+                        <h3>Browse PornPics</h3>
+                        <p>
+                            Jump into the full directories without searching first.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="ppics-directory-launch-grid">
+                    ${html}
+                </div>
+            </section>
+        `;
+    }
+
+    function renderDiscoveryHomeData(home) {
+        const container =
+            document.querySelector(
+                ".ppics-global-results"
+            );
+
+        if (!container) {
+            return;
+        }
+
+        const popular = [];
+
+        Array.from(
+            home.popular_tags || []
+        ).slice(
+            0,
+            4
+        ).forEach(function (item) {
+            popular.push(item);
+        });
+
+        Array.from(
+            home.popular_performers || []
+        ).slice(
+            0,
+            4
+        ).forEach(function (item) {
+            popular.push(item);
+        });
+
+        Array.from(
+            home.popular_studios || []
+        ).slice(
+            0,
+            4
+        ).forEach(function (item) {
+            popular.push(item);
+        });
+
+        let popularCards = "";
+
+        popular.forEach(function (item) {
+            popularCards +=
+                discoveryContextCard(
+                    item,
+                    "featured"
+                );
+        });
+
+        const recommended =
+            recommendedDiscoveryItems(
+                home
+            );
+
+        let recommendedCards = "";
+
+        recommended.forEach(function (item) {
+            recommendedCards +=
+                discoveryContextCard(
+                    item,
+                    "standard"
+                );
+        });
+
+        let tagCards = "";
+
+        Array.from(
+            home.popular_tags || []
+        ).slice(
+            0,
+            16
+        ).forEach(function (item) {
+            tagCards +=
+                discoveryContextCard(
+                    item,
+                    "compact"
+                );
+        });
+
+        let newCards = "";
+
+        Array.from(
+            home.new_scenes || []
+        ).slice(
+            0,
+            12
+        ).forEach(function (scene) {
+            newCards +=
+                discoverySceneCard(
+                    scene
+                );
+        });
+
+        const history =
+            readDiscoveryHistory();
+
+        let historyCards = "";
+
+        history.slice(
+            0,
+            10
+        ).forEach(function (item) {
+            historyCards +=
+                discoveryContextCard(
+                    item,
+                    "standard"
+                );
+        });
+
+        const allTagsButton = `
+            <button
+                type="button"
+                class="btn btn-sm btn-secondary ppics-directory-launch-inline"
+                data-directory-type="tag"
+            >
+                View all tags →
+            </button>
+        `;
+
+        let newSection =
+            "";
+
+        if (newCards) {
+            newSection =
+                discoverySection(
+                    "New on PornPics",
+                    "Fresh gallery results returned by PornPics.",
+                    newCards,
+                    ""
+                );
+        }
+
+        let historySection =
+            "";
+
+        if (historyCards) {
+            historySection =
+                discoverySection(
+                    "Continue browsing",
+                    "Pick up where you left off.",
+                    historyCards,
+                    ""
+                );
+        }
+
+        container.innerHTML = `
+            <div class="ppics-discovery-home">
+                <div class="ppics-discovery-intro">
+                    <div>
+                        <span class="ppics-discovery-kicker">
+                            Discover
+                        </span>
+
+                        <h3>
+                            Browse PornPics without knowing what to search for
+                        </h3>
+
+                        <p>
+                            Popular categories, local recommendations and full directories are ready below.
+                        </p>
+                    </div>
+                </div>
+
+                ${discoverySection(
+                    "Now popular",
+                    "A mix of PornPics' popular tags, performers and studios.",
+                    popularCards,
+                    ""
+                )}
+
+                ${discoverySection(
+                    "Recommended for you",
+                    "Recommendations adapt locally as you browse galleries.",
+                    recommendedCards,
+                    ""
+                )}
+
+                ${newSection}
+
+                ${historySection}
+
+                ${discoverySection(
+                    "Popular tags",
+                    "Explore commonly used PornPics categories with visual previews.",
+                    tagCards,
+                    allTagsButton
+                )}
+
+                ${discoveryDirectoryButtons(home)}
+            </div>
+        `;
+
+        bindDiscoveryHomeEvents();
+        hydrateContextPreviews(
+            container
+        );
+    }
+
+    function renderDiscoveryHomeLoading() {
+        const container =
+            document.querySelector(
+                ".ppics-global-results"
+            );
+
+        if (!container) {
+            return;
+        }
+
+        let cards = "";
+
+        for (
+            let index = 0;
+            index < 8;
+            index += 1
+        ) {
+            cards += `
+                <div class="ppics-discovery-skeleton-card">
+                    <span></span>
+                    <b></b>
+                    <i></i>
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <div class="ppics-discovery-home">
+                <div class="ppics-discovery-loading-head">
+                    <span class="spinner-border spinner-border-sm"></span>
+                    <strong>Loading PornPics discovery</strong>
+                </div>
+
+                <div class="ppics-discovery-skeleton-row">
+                    ${cards}
+                </div>
+            </div>
+        `;
+    }
+
+    async function loadDiscoveryHome(
+        force
+    ) {
+        if (
+            discoveryHomeCache
+            && !force
+        ) {
+            renderDiscoveryHomeData(
+                discoveryHomeCache
+            );
+            return;
+        }
+
+        if (
+            discoveryHomePromise
+            && !force
+        ) {
+            return discoveryHomePromise;
+        }
+
+        renderDiscoveryHomeLoading();
+
+        discoveryHomePromise =
+            requestData(
+                {
+                    mode:
+                        "discovery_home"
+                },
+                null,
+                60000
+            )
+            .then(function (data) {
+                discoveryHomeCache =
+                    data.home || {};
+
+                renderDiscoveryHomeData(
+                    discoveryHomeCache
+                );
+
+                return discoveryHomeCache;
+            })
+            .catch(function (error) {
+                console.error(error);
+
+                const container =
+                    document.querySelector(
+                        ".ppics-global-results"
+                    );
+
+                if (container) {
+                    container.innerHTML = `
+                        <div class="ppics-global-inline-error">
+                            <strong>Discovery could not be loaded</strong>
+                            <span>
+                                Search still works normally. Try reloading the discovery sections in a moment.
+                            </span>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-secondary ppics-discovery-retry"
+                            >
+                                Retry discovery
+                            </button>
+                        </div>
+                    `;
+
+                    const retry =
+                        container.querySelector(
+                            ".ppics-discovery-retry"
+                        );
+
+                    if (retry) {
+                        retry.addEventListener(
+                            "click",
+                            function () {
+                                loadDiscoveryHome(
+                                    true
+                                );
+                            }
+                        );
+                    }
+                }
+
+                return null;
+            })
+            .finally(function () {
+                discoveryHomePromise =
+                    null;
+            });
+
+        return discoveryHomePromise;
+    }
+
+    function contextPreviewKey(
+        type,
+        value,
+        url
+    ) {
+        return (
+            String(type || "")
+            + ":"
+            + String(value || "")
+            + ":"
+            + String(url || "")
+        ).toLowerCase();
+    }
+
+    function applyContextPreview(
+        target,
+        item
+    ) {
+        if (
+            !target
+            || !item
+        ) {
+            return;
+        }
+
+        target.dataset.previewLoaded =
+            "1";
+
+        if (item.thumbnail) {
+            const imageBox =
+                target.querySelector(
+                    ".ppics-discovery-card-image, .ppics-global-result-image"
+                );
+
+            if (imageBox) {
+                imageBox.querySelectorAll(
+                    "img, .ppics-discovery-card-placeholder, .ppics-global-result-placeholder"
+                ).forEach(function (node) {
+                    node.remove();
+                });
+
+                const image =
+                    document.createElement(
+                        "img"
+                    );
+
+                image.src =
+                    item.thumbnail;
+
+                image.alt =
+                    "";
+
+                image.loading =
+                    "lazy";
+
+                imageBox.insertBefore(
+                    image,
+                    imageBox.firstChild
+                );
+            }
+        }
+
+        if (item.scene_count_hint) {
+            const countNode =
+                target.querySelector(
+                    ".ppics-discovery-card-count"
+                );
+
+            if (countNode) {
+                countNode.textContent =
+                    String(
+                        item.scene_count_hint
+                    )
+                    + " galleries";
+            }
+        }
+    }
+
+    function pumpContextPreviewQueue() {
+        while (
+            discoveryPreviewActive < 3
+            && discoveryPreviewQueue.length
+        ) {
+            const job =
+                discoveryPreviewQueue.shift();
+
+            if (
+                !job
+                || !job.target
+                || !document.documentElement.contains(
+                    job.target
+                )
+            ) {
+                continue;
+            }
+
+            discoveryPreviewActive +=
+                1;
+
+            const key =
+                contextPreviewKey(
+                    job.type,
+                    job.value,
+                    job.url
+                );
+
+            const cached =
+                contextPreviewCache.get(
+                    key
+                );
+
+            let promise =
+                null;
+
+            if (cached) {
+                promise =
+                    Promise.resolve(
+                        cached
+                    );
+            } else {
+                promise =
+                    requestData(
+                        {
+                            mode:
+                                "context_preview",
+                            context_type:
+                                job.type,
+                            context_value:
+                                job.value,
+                            context_url:
+                                job.url
+                        },
+                        null,
+                        30000
+                    ).then(function (data) {
+                        const item =
+                            data.item || null;
+
+                        if (item) {
+                            contextPreviewCache.set(
+                                key,
+                                item
+                            );
+                        }
+
+                        return item;
+                    });
+            }
+
+            promise
+                .then(function (item) {
+                    applyContextPreview(
+                        job.target,
+                        item
+                    );
+                })
+                .catch(function (error) {
+                    console.warn(
+                        "PornPics preview could not be loaded",
+                        error
+                    );
+                })
+                .finally(function () {
+                    discoveryPreviewActive -=
+                        1;
+
+                    pumpContextPreviewQueue();
+                });
+        }
+    }
+
+    function queueContextPreviewTarget(
+        target
+    ) {
+        if (!target) {
+            return;
+        }
+
+        if (
+            target.dataset.previewLoaded
+            === "1"
+        ) {
+            return;
+        }
+
+        if (
+            target.dataset.previewQueued
+            === "1"
+        ) {
+            return;
+        }
+
+        target.dataset.previewQueued =
+            "1";
+
+        discoveryPreviewQueue.push({
+            target: target,
+            type:
+                target.dataset.contextType
+                || "",
+            value:
+                target.dataset.contextValue
+                || "",
+            url:
+                target.dataset.contextUrl
+                || ""
+        });
+
+        pumpContextPreviewQueue();
+    }
+
+    function hydrateContextPreviews(
+        root
+    ) {
+        root =
+            root
+            || document;
+
+        const targets =
+            Array.from(
+                root.querySelectorAll(
+                    ".ppics-context-preview-target"
+                )
+            );
+
+        if (
+            typeof IntersectionObserver
+            === "function"
+        ) {
+            if (!discoveryPreviewObserver) {
+                discoveryPreviewObserver =
+                    new IntersectionObserver(
+                        function (entries) {
+                            entries.forEach(
+                                function (entry) {
+                                    if (!entry.isIntersecting) {
+                                        return;
+                                    }
+
+                                    discoveryPreviewObserver.unobserve(
+                                        entry.target
+                                    );
+
+                                    queueContextPreviewTarget(
+                                        entry.target
+                                    );
+                                }
+                            );
+                        },
+                        {
+                            rootMargin:
+                                "420px"
+                        }
+                    );
+            }
+
+            targets.forEach(function (target) {
+                if (
+                    target.dataset.previewLoaded
+                    !== "1"
+                    && target.dataset.previewQueued
+                    !== "1"
+                ) {
+                    discoveryPreviewObserver.observe(
+                        target
+                    );
+                }
+            });
+
+            return;
+        }
+
+        targets.slice(
+            0,
+            18
+        ).forEach(function (target) {
+            queueContextPreviewTarget(
+                target
+            );
+        });
+    }
+
+    function bindDiscoveryHomeEvents() {
+        document.querySelectorAll(
+            ".ppics-discovery-card"
+        ).forEach(function (card) {
+            card.addEventListener(
+                "click",
+                function () {
+                    startBrowseContext({
+                        type:
+                            card.dataset.contextType,
+                        value:
+                            card.dataset.contextValue,
+                        label:
+                            card.dataset.contextLabel,
+                        url:
+                            card.dataset.contextUrl,
+                        thumbnail: (
+                            card.querySelector(
+                                "img"
+                            )
+                            && card.querySelector(
+                                "img"
+                            ).src
+                        ) || "",
+                        source:
+                            card.dataset.contextSource
+                            || "home"
+                    });
+                }
+            );
+        });
+
+        document.querySelectorAll(
+            ".ppics-discovery-scene-card"
+        ).forEach(function (card) {
+            card.addEventListener(
+                "click",
+                function () {
+                    openDirectPornPicsScene({
+                        id:
+                            card.dataset.sceneId,
+                        title:
+                            card.dataset.sceneTitle,
+                        url:
+                            card.dataset.sceneUrl,
+                        thumbnail:
+                            card.dataset.sceneThumbnail
+                    });
+                }
+            );
+        });
+
+        document.querySelectorAll(
+            ".ppics-directory-launch, .ppics-directory-launch-inline"
+        ).forEach(function (button) {
+            button.addEventListener(
+                "click",
+                function () {
+                    openDirectory(
+                        button.dataset.directoryType,
+                        1,
+                        "",
+                        "popular",
+                        true
+                    );
+                }
+            );
+        });
+    }
+
+    function directoryTitle(type) {
+        if (type === "tag") {
+            return "Tags";
+        }
+
+        if (type === "performer") {
+            return "Performers";
+        }
+
+        if (type === "studio") {
+            return "Studios";
+        }
+
+        return "Directory";
+    }
+
+    function directoryCard(item) {
+        return discoveryContextCard(
+            Object.assign(
+                {},
+                item,
+                {
+                    recommendation_reason:
+                        ""
+                }
+            ),
+            "directory"
+        ).replace(
+            'data-context-source="home"',
+            'data-context-source="directory"'
+        );
+    }
+
+    function renderDirectoryData(
+        data,
+        addHistory
+    ) {
+        if (!data) {
+            return;
+        }
+
+        lastDirectoryState =
+            data;
+
+        let cards = "";
+
+        Array.from(
+            data.items || []
+        ).forEach(function (item) {
+            cards +=
+                directoryCard(
+                    item
+                );
+        });
+
+        let pageText =
+            "Page "
+            + String(
+                data.page || 1
+            )
+            + " of "
+            + String(
+                data.total_pages || 1
+            );
+
+        let popularActive =
+            "";
+        let azActive =
+            "";
+        let previousDisabled =
+            "disabled";
+        let nextDisabled =
+            "disabled";
+
+        if (data.sort === "popular") {
+            popularActive =
+                " active";
+        }
+
+        if (data.sort === "az") {
+            azActive =
+                " active";
+        }
+
+        if (data.has_previous) {
+            previousDisabled =
+                "";
+        }
+
+        if (data.has_next) {
+            nextDisabled =
+                "";
+        }
+
+        setContent(`
+            <div class="ppics-browser ppics-directory-browser p-3">
+                <div class="ppics-directory-head">
+                    <button
+                        type="button"
+                        class="btn btn-secondary btn-sm ppics-directory-home"
+                    >
+                        ← PornPics home
+                    </button>
+
+                    <div class="ppics-eyebrow">
+                        Browse PornPics
+                    </div>
+
+                    <div class="ppics-directory-title-row">
+                        <div>
+                            <h2>
+                                ${escapeHtml(directoryTitle(data.type))}
+                            </h2>
+
+                            <p>
+                                ${escapeHtml(data.total_count || 0)} entries
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="ppics-directory-tools">
+                        <div class="ppics-global-input-shell">
+                            <span class="ppics-global-search-icon">
+                                ⌕
+                            </span>
+
+                            <input
+                                type="search"
+                                class="form-control ppics-directory-search"
+                                value="${escapeHtml(data.query || "")}"
+                                placeholder="Search ${escapeHtml(directoryTitle(data.type).toLowerCase())}"
+                                autocomplete="off"
+                            >
+                        </div>
+
+                        <div class="ppics-directory-sort">
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-secondary ppics-directory-sort-button${popularActive}"
+                                data-directory-sort="popular"
+                            >
+                                Popular
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-secondary ppics-directory-sort-button${azActive}"
+                                data-directory-sort="az"
+                            >
+                                A–Z
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ppics-directory-grid">
+                    ${cards || `
+                        <div class="ppics-global-empty">
+                            <h3>No matches</h3>
+                            <p>Try another directory search.</p>
+                        </div>
+                    `}
+                </div>
+
+                <div class="ppics-directory-pagination">
+                    <button
+                        type="button"
+                        class="btn btn-secondary ppics-directory-page"
+                        data-directory-page="previous"
+                        ${previousDisabled}
+                    >
+                        ← Previous
+                    </button>
+
+                    <span>
+                        ${escapeHtml(pageText)}
+                    </span>
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary ppics-directory-page"
+                        data-directory-page="next"
+                        ${nextDisabled}
+                    >
+                        Next →
+                    </button>
+                </div>
+            </div>
+        `);
+
+        const homeButton =
+            document.querySelector(
+                ".ppics-directory-home"
+            );
+
+        if (homeButton) {
+            homeButton.addEventListener(
+                "click",
+                function () {
+                    renderGlobalSearchPage(
+                        "",
+                        "all",
+                        [],
+                        true
+                    );
+                }
+            );
+        }
+
+        const input =
+            document.querySelector(
+                ".ppics-directory-search"
+            );
+
+        if (input) {
+            input.addEventListener(
+                "input",
+                function () {
+                    if (directorySearchTimer) {
+                        window.clearTimeout(
+                            directorySearchTimer
+                        );
+                    }
+
+                    directorySearchTimer =
+                        window.setTimeout(
+                            function () {
+                                openDirectory(
+                                    data.type,
+                                    1,
+                                    String(
+                                        input.value || ""
+                                    ).trim(),
+                                    data.sort,
+                                    false
+                                );
+                            },
+                            350
+                        );
+                }
+            );
+        }
+
+        document.querySelectorAll(
+            ".ppics-directory-sort-button"
+        ).forEach(function (button) {
+            button.addEventListener(
+                "click",
+                function () {
+                    openDirectory(
+                        data.type,
+                        1,
+                        data.query || "",
+                        button.dataset.directorySort,
+                        false
+                    );
+                }
+            );
+        });
+
+        document.querySelectorAll(
+            ".ppics-directory-page"
+        ).forEach(function (button) {
+            button.addEventListener(
+                "click",
+                function () {
+                    if (button.disabled) {
+                        return;
+                    }
+
+                    let page =
+                        Number(
+                            data.page || 1
+                        );
+
+                    if (
+                        button.dataset.directoryPage
+                        === "previous"
+                    ) {
+                        page -= 1;
+                    } else {
+                        page += 1;
+                    }
+
+                    openDirectory(
+                        data.type,
+                        page,
+                        data.query || "",
+                        data.sort,
+                        false
+                    );
+                }
+            );
+        });
+
+        document.querySelectorAll(
+            ".ppics-discovery-card"
+        ).forEach(function (card) {
+            card.addEventListener(
+                "click",
+                function () {
+                    startBrowseContext({
+                        type:
+                            card.dataset.contextType,
+                        value:
+                            card.dataset.contextValue,
+                        label:
+                            card.dataset.contextLabel,
+                        url:
+                            card.dataset.contextUrl,
+                        thumbnail: (
+                            card.querySelector(
+                                "img"
+                            )
+                            && card.querySelector(
+                                "img"
+                            ).src
+                        ) || "",
+                        source:
+                            "directory"
+                    });
+                }
+            );
+        });
+
+        hydrateContextPreviews(
+            document
+        );
+
+        if (addHistory !== false) {
+            recordView({
+                type: "directory",
+                data: data
+            });
+        }
+    }
+
+    async function openDirectory(
+        type,
+        page,
+        query,
+        sort,
+        addHistory
+    ) {
+        renderLoadingShell(
+            "Loading "
+            + directoryTitle(type),
+            "Reading the PornPics directory",
+            "This does not change your current image selections."
+        );
+
+        try {
+            const data =
+                await requestData(
+                    {
+                        mode:
+                            "browse_directory",
+                        context_type:
+                            type,
+                        page:
+                            page,
+                        query:
+                            query,
+                        sort:
+                            sort
+                    },
+                    null,
+                    60000
+                );
+
+            renderDirectoryData(
+                data.directory,
+                addHistory
+            );
+        } catch (error) {
+            console.error(error);
+            renderError(error);
+        }
+    }
+
     function globalResultGroupLabel(type) {
         if (type === "performer") {
             return "Performers";
@@ -10769,14 +12518,23 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 '"';
         }
 
+        let previewLoaded =
+            "0";
+
+        if (item.thumbnail) {
+            previewLoaded =
+                "1";
+        }
+
         return `
             <button
                 type="button"
-                class="ppics-global-result-card"
+                class="ppics-global-result-card ppics-context-preview-target"
                 data-context-type="${escapeHtml(item.type)}"
                 data-context-value="${escapeHtml(item.value)}"
                 data-context-label="${escapeHtml(item.label)}"
                 data-context-url="${escapeHtml(item.url)}"
+                data-preview-loaded="${previewLoaded}"
             >
                 <div class="ppics-global-result-image">
                     ${imageHtml}
@@ -10882,13 +12640,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
         if (!query) {
             return `
-                <div class="ppics-global-welcome">
-                    <div class="ppics-global-welcome-icon">⌕</div>
-                    <h3>Search the PornPics library</h3>
-                    <p>
-                        Start typing a performer, studio or tag.
-                        Matching PornPics entries appear automatically.
-                    </p>
+                <div class="ppics-discovery-loading-head">
+                    <span class="spinner-border spinner-border-sm"></span>
+                    <strong>Loading PornPics discovery</strong>
                 </div>
             `;
         }
@@ -10959,6 +12713,14 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                             card.dataset.contextLabel,
                         url:
                             card.dataset.contextUrl,
+                        thumbnail: (
+                            card.querySelector(
+                                "img"
+                            )
+                            && card.querySelector(
+                                "img"
+                            ).src
+                        ) || "",
                         source:
                             "global"
                     });
@@ -10989,6 +12751,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             );
 
         bindGlobalResultCards();
+        hydrateContextPreviews(
+            container
+        );
     }
 
     function renderGlobalSearchPage(
@@ -11152,10 +12917,8 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
                         saveGlobalSearchState();
 
-                        updateGlobalResultsArea(
-                            "",
-                            [],
-                            ""
+                        loadDiscoveryHome(
+                            false
                         );
 
                         return;
@@ -11252,6 +13015,15 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
 
         bindGlobalResultCards();
+        hydrateContextPreviews(
+            document
+        );
+
+        if (!query) {
+            loadDiscoveryHome(
+                false
+            );
+        }
 
         if (input && !query) {
             window.setTimeout(

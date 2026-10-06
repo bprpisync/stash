@@ -1808,6 +1808,477 @@ class PPics:
 
         return None
 
+    def context_items_from_html(
+        self,
+        html,
+        context_type
+    ):
+        parser = ContextListParser(
+            context_type
+        )
+
+        parser.feed(
+            str(
+                html or ""
+            )
+        )
+
+        result = []
+        seen = set()
+
+        for item in parser.items:
+            key = (
+                str(
+                    item.get("type") or ""
+                ).casefold(),
+                str(
+                    item.get("url") or ""
+                ).casefold()
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(
+                key
+            )
+
+            result.append(
+                item
+            )
+
+        return result
+
+    def discovery_home_data(
+        self,
+        popular_limit=18,
+        people_limit=10,
+        studio_limit=10,
+        new_limit=12
+    ):
+        try:
+            home_html = self.fetch(
+                self.BASE + "/"
+            )
+        except Exception:
+            home_html = ""
+
+        popular_tags = (
+            self.context_items_from_html(
+                home_html,
+                "tag"
+            )
+        )
+
+        if not popular_tags:
+            index = self.build_context_index()
+            popular_tags = [
+                dict(item)
+                for item in (
+                    index.get("items")
+                    or []
+                )
+                if item.get("type")
+                == "tag"
+            ]
+
+            popular_tags.sort(
+                key=lambda item: (
+                    -int(
+                        item.get(
+                            "scene_count_hint"
+                        )
+                        or 0
+                    ),
+                    str(
+                        item.get("label")
+                        or ""
+                    ).casefold()
+                )
+            )
+
+        popular_tags = popular_tags[
+            :max(
+                1,
+                int(
+                    popular_limit
+                )
+            )
+        ]
+
+        index = self.build_context_index()
+        items = index.get(
+            "items"
+        ) or []
+
+        def popular_type(
+            context_type,
+            limit
+        ):
+            rows = [
+                dict(item)
+                for item in items
+                if item.get("type")
+                == context_type
+            ]
+
+            rows.sort(
+                key=lambda item: (
+                    -int(
+                        item.get(
+                            "scene_count_hint"
+                        )
+                        or 0
+                    ),
+                    str(
+                        item.get("label")
+                        or ""
+                    ).casefold()
+                )
+            )
+
+            return rows[
+                :max(
+                    1,
+                    int(
+                        limit
+                    )
+                )
+            ]
+
+        popular_performers = popular_type(
+            "performer",
+            people_limit
+        )
+
+        popular_studios = popular_type(
+            "studio",
+            studio_limit
+        )
+
+        new_scenes = []
+
+        try:
+            new_scenes = self._search_scene_batch(
+                "",
+                0,
+                self.BASE + "/"
+            )
+        except Exception:
+            new_scenes = []
+
+        if not new_scenes:
+            try:
+                new_scenes = self.parse_scene_list_html(
+                    home_html
+                )
+            except Exception:
+                new_scenes = []
+
+        return {
+            "popular_tags": popular_tags,
+            "popular_performers": popular_performers,
+            "popular_studios": popular_studios,
+            "new_scenes": new_scenes[
+                :max(
+                    1,
+                    int(
+                        new_limit
+                    )
+                )
+            ],
+            "directory_counts": {
+                "tag": len([
+                    item
+                    for item in items
+                    if item.get("type")
+                    == "tag"
+                ]),
+                "performer": len([
+                    item
+                    for item in items
+                    if item.get("type")
+                    == "performer"
+                ]),
+                "studio": len([
+                    item
+                    for item in items
+                    if item.get("type")
+                    == "studio"
+                ])
+            }
+        }
+
+    def context_preview(
+        self,
+        context_type,
+        value,
+        url=""
+    ):
+        context_type = str(
+            context_type or ""
+        ).strip().lower()
+
+        value = str(
+            value or ""
+        ).strip()
+
+        url = str(
+            url or ""
+        ).strip()
+
+        if context_type == "keyword":
+            try:
+                scenes = self._search_scene_batch(
+                    value,
+                    0,
+                    self.BASE + "/"
+                )
+            except Exception:
+                scenes = []
+
+            if not scenes:
+                return None
+
+            return {
+                "type": "keyword",
+                "value": value,
+                "label": value,
+                "url": "",
+                "thumbnail": scenes[0].get(
+                    "thumbnail"
+                ),
+                "scene_count_hint": None,
+                "preview_count": len(
+                    scenes
+                )
+            }
+
+        if context_type not in (
+            "performer",
+            "studio",
+            "tag"
+        ):
+            return None
+
+        if url:
+            try:
+                html = self.fetch(
+                    url
+                )
+            except Exception:
+                html = ""
+
+            if html:
+                scenes = self.parse_scene_list_html(
+                    html
+                )
+
+                if scenes:
+                    return {
+                        "type": context_type,
+                        "value": value,
+                        "label": value,
+                        "url": url,
+                        "thumbnail": scenes[0].get(
+                            "thumbnail"
+                        ),
+                        "scene_count_hint": (
+                            self._extract_gallery_count(
+                                html
+                            )
+                            or None
+                        ),
+                        "preview_count": len(
+                            scenes
+                        )
+                    }
+
+        return self.resolve_context(
+            context_type,
+            value
+        )
+
+    def directory_page(
+        self,
+        context_type,
+        page=1,
+        per_page=60,
+        query="",
+        sort="popular"
+    ):
+        context_type = str(
+            context_type or "tag"
+        ).strip().lower()
+
+        if context_type not in (
+            "tag",
+            "performer",
+            "studio"
+        ):
+            raise ValueError(
+                "Unsupported PornPics directory type."
+            )
+
+        try:
+            page = max(
+                1,
+                int(page)
+            )
+        except (TypeError, ValueError):
+            page = 1
+
+        try:
+            per_page = max(
+                12,
+                min(
+                    120,
+                    int(per_page)
+                )
+            )
+        except (TypeError, ValueError):
+            per_page = 60
+
+        query = str(
+            query or ""
+        ).strip()
+
+        sort = str(
+            sort or "popular"
+        ).strip().lower()
+
+        index = self.build_context_index()
+
+        items = [
+            dict(item)
+            for item in (
+                index.get("items")
+                or []
+            )
+            if item.get("type")
+            == context_type
+        ]
+
+        if query:
+            needle = self._normalized_search_text(
+                query
+            )
+
+            items = [
+                item
+                for item in items
+                if needle
+                in self._normalized_search_text(
+                    item.get("label")
+                )
+            ]
+
+        if sort == "az":
+            items.sort(
+                key=lambda item: str(
+                    item.get("label")
+                    or ""
+                ).casefold()
+            )
+        elif context_type == "tag":
+            popular_order = {}
+
+            try:
+                home_html = self.fetch(
+                    self.BASE + "/"
+                )
+
+                popular_tags = (
+                    self.context_items_from_html(
+                        home_html,
+                        "tag"
+                    )
+                )
+
+                for position, item in enumerate(
+                    popular_tags
+                ):
+                    popular_order[
+                        str(
+                            item.get("url")
+                            or ""
+                        ).casefold()
+                    ] = position
+            except Exception:
+                popular_order = {}
+
+            items.sort(
+                key=lambda item: (
+                    popular_order.get(
+                        str(
+                            item.get("url")
+                            or ""
+                        ).casefold(),
+                        1000000
+                    ),
+                    str(
+                        item.get("label")
+                        or ""
+                    ).casefold()
+                )
+            )
+        else:
+            items.sort(
+                key=lambda item: (
+                    -int(
+                        item.get(
+                            "scene_count_hint"
+                        )
+                        or 0
+                    ),
+                    str(
+                        item.get("label")
+                        or ""
+                    ).casefold()
+                )
+            )
+
+        total_count = len(
+            items
+        )
+
+        total_pages = max(
+            1,
+            int(
+                math.ceil(
+                    total_count
+                    / float(
+                        per_page
+                    )
+                )
+            )
+        )
+
+        if page > total_pages:
+            page = total_pages
+
+        start = (
+            page - 1
+        ) * per_page
+
+        page_items = items[
+            start:
+            start + per_page
+        ]
+
+        return {
+            "type": context_type,
+            "query": query,
+            "sort": sort,
+            "page": page,
+            "per_page": per_page,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "has_previous": page > 1,
+            "has_next": page < total_pages,
+            "items": page_items
+        }
+
     def resolve_contexts(
         self,
         query,

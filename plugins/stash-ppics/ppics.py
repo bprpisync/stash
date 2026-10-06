@@ -1450,6 +1450,83 @@ def search_performer(
     }
 
 
+def discovery_home(
+    pp,
+    request_id=None
+):
+    write_progress(
+        request_id,
+        "discovery",
+        "Building PornPics home",
+        detail="Loading popular tags, performers and studios"
+    )
+
+    data = pp.discovery_home_data()
+
+    return {
+        "status": "ok",
+        "mode": "discovery_home",
+        "home": data
+    }
+
+
+def context_preview(
+    pp,
+    context_type,
+    value,
+    url="",
+    request_id=None
+):
+    write_progress(
+        request_id,
+        "preview",
+        "Loading preview",
+        detail=str(value or "")
+    )
+
+    item = pp.context_preview(
+        context_type,
+        value,
+        url=url
+    )
+
+    return {
+        "status": "ok",
+        "mode": "context_preview",
+        "item": item
+    }
+
+
+def browse_directory(
+    pp,
+    context_type,
+    page=1,
+    query="",
+    sort="popular",
+    request_id=None
+):
+    write_progress(
+        request_id,
+        "directory",
+        "Loading PornPics directory",
+        detail=str(context_type or "").title()
+    )
+
+    data = pp.directory_page(
+        context_type=context_type,
+        page=page,
+        per_page=60,
+        query=query,
+        sort=sort
+    )
+
+    return {
+        "status": "ok",
+        "mode": "browse_directory",
+        "directory": data
+    }
+
+
 def global_context_search(
     pp,
     query,
@@ -3784,7 +3861,61 @@ def main():
     stash = Stash(server_connection)
 
     try:
-        if mode == "global_context_search":
+        if mode == "discovery_home":
+            payload = discovery_home(
+                pp,
+                request_id=request_id
+            )
+
+        elif mode == "context_preview":
+            payload = context_preview(
+                pp,
+                context_type=str(
+                    args.get("context_type")
+                    or ""
+                ).strip(),
+                value=str(
+                    args.get("context_value")
+                    or ""
+                ).strip(),
+                url=str(
+                    args.get("context_url")
+                    or ""
+                ).strip(),
+                request_id=request_id
+            )
+
+        elif mode == "browse_directory":
+            try:
+                directory_page_value = int(
+                    args.get("page")
+                    or 1
+                )
+            except (
+                TypeError,
+                ValueError
+            ):
+                directory_page_value = 1
+
+            payload = browse_directory(
+                pp,
+                context_type=str(
+                    args.get("context_type")
+                    or "tag"
+                ).strip(),
+                page=directory_page_value,
+                query=str(
+                    args.get("query")
+                    or ""
+                ).strip(),
+                sort=str(
+                    args.get("sort")
+                    or "popular"
+                ).strip(),
+                request_id=request_id
+            )
+
+        elif mode == "global_context_search":
             query = str(
                 args.get("query") or ""
             ).strip()

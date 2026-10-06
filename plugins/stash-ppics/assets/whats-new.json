@@ -1,10 +1,13 @@
 {
   "enabled": true,
-  "version": "v2.4.2",
-  "title": "What's new in v2.4.2",
-  "intro": "Small update",
+  "version": "v3.0",
+  "title": "What's new in v3.0",
+  "intro": "Refreshed Homepage",
   "items": [
-    "Fixed selected images not saving when viewing a different set (issue by @Nonoty)"
+    "Added a redesigned PornPics home with Now popular, Recommended for you, New on PornPics, Continue browsing and Popular tags sections.",
+    "Added full in-plugin directories for tags, performers and studios with search, Popular and A–Z sorting, and pagination.",
+    "Search results are now more visual and progressively load preview images for tags, performers and studios.",
+    "Recommendations are generated locally from galleries you browse; no external tracking is added."
   ],
-  "footer": ""
+  "footer": "This update is a bit experimental. If you encounter any issues, message @bprpi on the forum"
 }
