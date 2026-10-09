@@ -606,6 +606,66 @@ class GalleryParser(HTMLParser):
                 and "/1280/"
                 in href
             ):
+                width = None
+                height = None
+
+                try:
+                    width = int(
+                        attrs.get(
+                            "data-pswp-width"
+                        )
+                        or 0
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    width = None
+
+                try:
+                    height = int(
+                        attrs.get(
+                            "data-pswp-height"
+                        )
+                        or 0
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    height = None
+
+                if (
+                    not width
+                    or not height
+                ):
+                    size_value = str(
+                        attrs.get(
+                            "data-size"
+                        )
+                        or ""
+                    ).strip()
+
+                    size_match = re.match(
+                        r"^(\d+)x(\d+)$",
+                        size_value
+                    )
+
+                    if size_match:
+                        if not width:
+                            width = int(
+                                size_match.group(
+                                    1
+                                )
+                            )
+
+                        if not height:
+                            height = int(
+                                size_match.group(
+                                    2
+                                )
+                            )
+
                 self.current_image = {
                     "index":
                         len(
@@ -621,6 +681,10 @@ class GalleryParser(HTMLParser):
                         ),
                     "thumbnail":
                         None,
+                    "width":
+                        width,
+                    "height":
+                        height,
                 }
 
             elif (
@@ -699,6 +763,48 @@ class GalleryParser(HTMLParser):
                     BASE_URL,
                     thumb
                 )
+
+            if not self.current_image.get(
+                "width"
+            ):
+                try:
+                    image_width = int(
+                        attrs.get(
+                            "width"
+                        )
+                        or 0
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    image_width = 0
+
+                if image_width > 0:
+                    self.current_image[
+                        "width"
+                    ] = image_width
+
+            if not self.current_image.get(
+                "height"
+            ):
+                try:
+                    image_height = int(
+                        attrs.get(
+                            "height"
+                        )
+                        or 0
+                    )
+                except (
+                    TypeError,
+                    ValueError
+                ):
+                    image_height = 0
+
+                if image_height > 0:
+                    self.current_image[
+                        "height"
+                    ] = image_height
 
     def handle_data(
         self,

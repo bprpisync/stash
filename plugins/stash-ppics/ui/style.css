@@ -4714,3 +4714,369 @@
         grid-auto-columns: minmax(172px, 78vw);
     }
 }
+
+
+/* PornPics Importer v3.1 - Performer Profile Image Finder */
+.ppics-profile-image-search-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+
+.ppics-profile-image-search-button::before {
+    content: "P";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.ppics-profile-picker-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10080;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px);
+}
+
+.ppics-profile-picker-card {
+    width: min(1180px, 96vw);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 18px;
+    background: var(--bs-body-bg, #17191d);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48);
+}
+
+.ppics-profile-picker-header,
+.ppics-profile-picker-toolbar,
+.ppics-profile-picker-footer {
+    flex: 0 0 auto;
+}
+
+.ppics-profile-picker-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.2rem 1.35rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ppics-profile-picker-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    min-width: 0;
+}
+
+.ppics-profile-picker-logo {
+    flex: 0 0 auto;
+    width: 2.7rem;
+    height: 2.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    font-weight: 900;
+    font-size: 1.15rem;
+    background: linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.19),
+        rgba(255, 255, 255, 0.06)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ppics-profile-picker-eyebrow {
+    display: block;
+    margin-bottom: 0.12rem;
+    opacity: 0.66;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.ppics-profile-picker-header h2 {
+    margin: 0;
+    font-size: 1.45rem;
+}
+
+.ppics-profile-picker-header p {
+    margin: 0.2rem 0 0;
+    opacity: 0.76;
+    font-size: 0.92rem;
+}
+
+.ppics-profile-picker-close {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+    color: inherit;
+    font-size: 1.45rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.ppics-profile-picker-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 0.85rem 1.35rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.ppics-profile-picker-toolbar > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+}
+
+.ppics-profile-picker-toolbar span {
+    opacity: 0.67;
+    font-size: 0.83rem;
+}
+
+.ppics-profile-picker-status {
+    flex: 0 0 auto;
+    max-width: 42%;
+    font-size: 0.8rem;
+    opacity: 0.76;
+    text-align: right;
+}
+
+.ppics-profile-picker-status-error {
+    opacity: 1;
+    color: var(--bs-danger, #dc3545);
+}
+
+.ppics-profile-picker-status-success {
+    opacity: 1;
+    color: var(--bs-success, #198754);
+}
+
+.ppics-profile-picker-body {
+    min-height: 280px;
+    overflow: auto;
+    padding: 1rem 1.2rem 1.3rem;
+}
+
+.ppics-profile-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+    gap: 0.8rem;
+}
+
+.ppics-profile-picker-item {
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 2px solid transparent;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.045);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        transform 140ms ease,
+        border-color 140ms ease,
+        background 140ms ease;
+}
+
+.ppics-profile-picker-item:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.075);
+}
+
+.ppics-profile-picker-item-selected {
+    border-color: var(--bs-primary, #7952b3);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.ppics-profile-picker-image-shell {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.ppics-profile-picker-image-shell img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.ppics-profile-picker-portrait-badge {
+    position: absolute;
+    left: 0.48rem;
+    bottom: 0.48rem;
+    padding: 0.22rem 0.42rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.68);
+    color: #fff;
+    font-size: 0.64rem;
+    font-weight: 700;
+}
+
+.ppics-profile-picker-selected-mark {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--bs-primary, #7952b3);
+    color: #fff;
+    font-weight: 900;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.35);
+}
+
+.ppics-profile-picker-item-copy {
+    min-height: 58px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    padding: 0.58rem 0.62rem 0.64rem;
+}
+
+.ppics-profile-picker-item-copy strong {
+    overflow: hidden;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ppics-profile-picker-item-copy small {
+    display: flex;
+    gap: 0.35rem;
+    min-height: 1rem;
+    opacity: 0.58;
+    font-size: 0.66rem;
+}
+
+.ppics-profile-picker-loading,
+.ppics-profile-picker-empty {
+    grid-column: 1 / -1;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    text-align: center;
+    opacity: 0.78;
+}
+
+.ppics-profile-picker-empty span {
+    max-width: 440px;
+    opacity: 0.7;
+}
+
+.ppics-profile-picker-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.ppics-profile-picker-footer-note {
+    max-width: 520px;
+    opacity: 0.6;
+    font-size: 0.74rem;
+}
+
+.ppics-profile-picker-footer-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.55rem;
+}
+
+.ppics-profile-picker-toast {
+    position: fixed;
+    right: 1.2rem;
+    bottom: 1.2rem;
+    z-index: 10120;
+    max-width: min(420px, calc(100vw - 2.4rem));
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 11px;
+    background: rgba(20, 22, 26, 0.96);
+    color: #fff;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+        opacity 180ms ease,
+        transform 180ms ease;
+}
+
+.ppics-profile-picker-toast-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (max-width: 760px) {
+    .ppics-profile-picker-overlay {
+        padding: 0.45rem;
+    }
+
+    .ppics-profile-picker-card {
+        width: 100%;
+        max-height: 96vh;
+        border-radius: 14px;
+    }
+
+    .ppics-profile-picker-toolbar,
+    .ppics-profile-picker-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ppics-profile-picker-status {
+        max-width: none;
+        text-align: left;
+    }
+
+    .ppics-profile-picker-footer-actions {
+        justify-content: stretch;
+    }
+
+    .ppics-profile-picker-footer-actions .btn {
+        flex: 1 1 auto;
+    }
+
+    .ppics-profile-picker-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+}

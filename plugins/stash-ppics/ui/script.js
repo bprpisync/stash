@@ -1,4 +1,4 @@
-const pp_VERSION = "v3.0";
+const pp_VERSION = "v3.1";
 
 console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
@@ -85,6 +85,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
     let whatsNewCheckInFlight = false;
     let whatsNewRuntimeSeen = "";
     let whatsNewTimer = null;
+
+    let profilePickerState = null;
+    let profilePickerRequestToken = 0;
 
     const viewHistory = [];
     let viewHistoryIndex = -1;
@@ -13819,8 +13822,1170 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         }
     );
 
+    function performerIdFromPath() {
+        const parts =
+            window.location.pathname
+            .split(
+                "/"
+            )
+            .filter(
+                function (part) {
+                    return Boolean(
+                        part
+                    );
+                }
+            );
+
+        const index =
+            parts.indexOf(
+                "performers"
+            );
+
+        if (
+            index < 0
+            || index + 1 >= parts.length
+        ) {
+            return "";
+        }
+
+        try {
+            return decodeURIComponent(
+                parts[
+                    index + 1
+                ]
+            );
+        } catch (error) {
+            return String(
+                parts[
+                    index + 1
+                ]
+                || ""
+            );
+        }
+    }
+
+    function performerNameFromEditForm() {
+        const form =
+            document.getElementById(
+                "performer-edit"
+            );
+
+        if (form) {
+            const input =
+                form.querySelector(
+                    'input[name="name"]'
+                );
+
+            if (
+                input
+                && String(
+                    input.value
+                    || ""
+                ).trim()
+            ) {
+                return String(
+                    input.value
+                ).trim();
+            }
+        }
+
+        return String(
+            currentPerformer()
+            || ""
+        ).trim();
+    }
+
+    function nativePerformerImageButton(
+        row
+    ) {
+        if (!row) {
+            return null;
+        }
+
+        const children =
+            Array.from(
+                row.children
+                || []
+            );
+
+        let result = null;
+
+        children.forEach(function (child) {
+            if (result) {
+                return;
+            }
+
+            if (
+                !child
+                || child.tagName
+                    !== "BUTTON"
+            ) {
+                return;
+            }
+
+            if (
+                child.classList.contains(
+                    "ppics-profile-image-search-button"
+                )
+            ) {
+                return;
+            }
+
+            const next =
+                child.nextElementSibling;
+
+            if (
+                next
+                && next.querySelector(
+                    "button.btn-danger"
+                )
+            ) {
+                result =
+                    child;
+            }
+        });
+
+        return result;
+    }
+
+    function profilePickerOverlay() {
+        return document.getElementById(
+            "ppics-profile-picker"
+        );
+    }
+
+    function profilePickerStatus(
+        message,
+        kind
+    ) {
+        const node =
+            document.querySelector(
+                ".ppics-profile-picker-status"
+            );
+
+        if (!node) {
+            return;
+        }
+
+        node.textContent =
+            String(
+                message
+                || ""
+            );
+
+        node.classList.remove(
+            "ppics-profile-picker-status-error",
+            "ppics-profile-picker-status-success"
+        );
+
+        if (kind === "error") {
+            node.classList.add(
+                "ppics-profile-picker-status-error"
+            );
+        }
+
+        if (kind === "success") {
+            node.classList.add(
+                "ppics-profile-picker-status-success"
+            );
+        }
+    }
+
+    function profilePickerSizeLabel(
+        candidate
+    ) {
+        const width =
+            Number(
+                candidate.width
+                || 0
+            );
+
+        const height =
+            Number(
+                candidate.height
+                || 0
+            );
+
+        if (
+            width > 0
+            && height > 0
+        ) {
+            return (
+                String(
+                    width
+                )
+                + " × "
+                + String(
+                    height
+                )
+            );
+        }
+
+        return "";
+    }
+
+    function profilePickerCandidateHtml(
+        candidate
+    ) {
+        const selected =
+            Boolean(
+                profilePickerState
+                && profilePickerState.selectedUrl
+                === candidate.url
+            );
+
+        let selectedClass = "";
+        let selectedMark = "";
+        let portraitBadge = "";
+        let sizeHtml = "";
+        let selectedPressValue = "false";
+
+        if (selected) {
+            selectedClass =
+                " ppics-profile-picker-item-selected";
+
+            selectedMark = `
+                <span class="ppics-profile-picker-selected-mark">
+                    ✓
+                </span>
+            `;
+
+            selectedPressValue =
+                "true";
+        }
+
+        if (
+            candidate.orientation
+            === "portrait"
+        ) {
+            portraitBadge = `
+                <span class="ppics-profile-picker-portrait-badge">
+                    Portrait
+                </span>
+            `;
+        }
+
+        const sizeLabel =
+            profilePickerSizeLabel(
+                candidate
+            );
+
+        if (sizeLabel) {
+            sizeHtml = `
+                <span>
+                    ${escapeHtml(sizeLabel)}
+                </span>
+            `;
+        }
+
+        return `
+            <button
+                type="button"
+                class="ppics-profile-picker-item${selectedClass}"
+                data-profile-image-url="${escapeHtml(candidate.url)}"
+                aria-pressed="${selectedPressValue}"
+            >
+                <span class="ppics-profile-picker-image-shell">
+                    <img
+                        src="${escapeHtml(candidate.thumbnail || candidate.url)}"
+                        alt=""
+                        loading="lazy"
+                    >
+
+                    ${portraitBadge}
+                    ${selectedMark}
+                </span>
+
+                <span class="ppics-profile-picker-item-copy">
+                    <strong>
+                        ${escapeHtml(candidate.gallery_title || "PornPics gallery")}
+                    </strong>
+
+                    <small>
+                        ${sizeHtml}
+                    </small>
+                </span>
+            </button>
+        `;
+    }
+
+    function renderProfilePickerGrid() {
+        const grid =
+            document.querySelector(
+                ".ppics-profile-picker-grid"
+            );
+
+        if (
+            !grid
+            || !profilePickerState
+        ) {
+            return;
+        }
+
+        const candidates =
+            Array.from(
+                profilePickerState.candidates
+                || []
+            );
+
+        if (!candidates.length) {
+            grid.innerHTML = `
+                <div class="ppics-profile-picker-empty">
+                    <strong>
+                        No images found
+                    </strong>
+
+                    <span>
+                        PornPics did not return usable photos for this performer.
+                    </span>
+                </div>
+            `;
+
+            return;
+        }
+
+        grid.innerHTML =
+            candidates.map(
+                profilePickerCandidateHtml
+            ).join(
+                ""
+            );
+
+        grid.querySelectorAll(
+            ".ppics-profile-picker-item"
+        ).forEach(function (button) {
+            button.addEventListener(
+                "click",
+                function () {
+                    if (!profilePickerState) {
+                        return;
+                    }
+
+                    profilePickerState.selectedUrl =
+                        button.dataset.profileImageUrl
+                        || "";
+
+                    renderProfilePickerGrid();
+                    updateProfilePickerActions();
+                }
+            );
+        });
+    }
+
+    function updateProfilePickerActions() {
+        if (!profilePickerState) {
+            return;
+        }
+
+        const useButton =
+            document.querySelector(
+                ".ppics-profile-picker-use"
+            );
+
+        const moreButton =
+            document.querySelector(
+                ".ppics-profile-picker-more"
+            );
+
+        if (useButton) {
+            useButton.disabled =
+                (
+                    !profilePickerState.selectedUrl
+                    || profilePickerState.loading
+                    || profilePickerState.applying
+                );
+        }
+
+        if (moreButton) {
+            moreButton.disabled =
+                Boolean(
+                    profilePickerState.loading
+                    || profilePickerState.applying
+                );
+
+            if (
+                profilePickerState.hasNext
+            ) {
+                moreButton.style.display =
+                    "inline-flex";
+            } else {
+                moreButton.style.display =
+                    "none";
+            }
+        }
+    }
+
+    function closeProfileImagePicker() {
+        profilePickerRequestToken +=
+            1;
+
+        const overlay =
+            profilePickerOverlay();
+
+        if (overlay) {
+            overlay.remove();
+        }
+
+        profilePickerState =
+            null;
+
+        document.removeEventListener(
+            "keydown",
+            profilePickerKeyHandler,
+            true
+        );
+    }
+
+    function profilePickerKeyHandler(
+        event
+    ) {
+        if (
+            event.key
+            === "Escape"
+        ) {
+            closeProfileImagePicker();
+        }
+    }
+
+    function profilePickerToast(
+        message
+    ) {
+        const old =
+            document.getElementById(
+                "ppics-profile-picker-toast"
+            );
+
+        if (old) {
+            old.remove();
+        }
+
+        const toast =
+            document.createElement(
+                "div"
+            );
+
+        toast.id =
+            "ppics-profile-picker-toast";
+
+        toast.className =
+            "ppics-profile-picker-toast";
+
+        toast.textContent =
+            String(
+                message
+                || ""
+            );
+
+        document.body.appendChild(
+            toast
+        );
+
+        window.requestAnimationFrame(
+            function () {
+                toast.classList.add(
+                    "ppics-profile-picker-toast-visible"
+                );
+            }
+        );
+
+        window.setTimeout(
+            function () {
+                toast.classList.remove(
+                    "ppics-profile-picker-toast-visible"
+                );
+
+                window.setTimeout(
+                    function () {
+                        if (
+                            toast
+                            && toast.isConnected
+                        ) {
+                            toast.remove();
+                        }
+                    },
+                    220
+                );
+            },
+            2600
+        );
+    }
+
+    function refreshPerformerImageInPage(
+        imagePath,
+        previousImagePath
+    ) {
+        imagePath =
+            String(
+                imagePath
+                || ""
+            ).trim();
+
+        previousImagePath =
+            String(
+                previousImagePath
+                || ""
+            ).trim();
+
+        if (!imagePath) {
+            return;
+        }
+
+        const queryMarker =
+            String.fromCharCode(
+                63
+            );
+
+        const freshPath =
+            imagePath
+            + queryMarker
+            + "ppicsProfile="
+            + String(
+                Date.now()
+            );
+
+        let changed = 0;
+
+        if (previousImagePath) {
+            const oldBase =
+                previousImagePath.split(
+                    queryMarker
+                )[0];
+
+            document.querySelectorAll(
+                "img"
+            ).forEach(function (image) {
+                const source =
+                    String(
+                        image.getAttribute(
+                            "src"
+                        )
+                        || image.src
+                        || ""
+                    );
+
+                if (
+                    oldBase
+                    && source.indexOf(
+                        oldBase
+                    ) >= 0
+                ) {
+                    image.src =
+                        freshPath;
+
+                    changed +=
+                        1;
+                }
+            });
+        }
+
+        if (!changed) {
+            document.querySelectorAll(
+                ".performer-image img, .detail-header-image img, #performer-edit img"
+            ).forEach(function (image) {
+                image.src =
+                    freshPath;
+            });
+        }
+    }
+
+    async function loadProfileImageCandidates(
+        append
+    ) {
+        if (
+            !profilePickerState
+            || profilePickerState.loading
+        ) {
+            return;
+        }
+
+        profilePickerState.loading =
+            true;
+
+        const requestToken =
+            profilePickerRequestToken;
+
+        let page = 1;
+
+        if (append) {
+            page =
+                Number(
+                    profilePickerState.page
+                    || 1
+                )
+                + 1;
+        }
+
+        let loadingMessage =
+            "Searching PornPics for portrait photos";
+
+        if (append) {
+            loadingMessage =
+                "Loading more photos";
+        }
+
+        profilePickerStatus(
+            loadingMessage,
+            ""
+        );
+
+        updateProfilePickerActions();
+
+        try {
+            const data =
+                await requestData(
+                    {
+                        mode:
+                            "profile_image_search",
+                        performer_id:
+                            profilePickerState.performerId,
+                        performer_name:
+                            profilePickerState.performerName,
+                        page:
+                            page
+                    },
+                    null,
+                    120000
+                );
+
+            if (
+                !profilePickerState
+                || requestToken
+                    !== profilePickerRequestToken
+            ) {
+                return;
+            }
+
+            const existing =
+                new Map();
+
+            if (append) {
+                profilePickerState.candidates.forEach(
+                    function (candidate) {
+                        existing.set(
+                            candidate.url,
+                            candidate
+                        );
+                    }
+                );
+            }
+
+            Array.from(
+                data.candidates
+                || []
+            ).forEach(function (candidate) {
+                if (
+                    candidate
+                    && candidate.url
+                ) {
+                    existing.set(
+                        candidate.url,
+                        candidate
+                    );
+                }
+            });
+
+            profilePickerState.candidates =
+                Array.from(
+                    existing.values()
+                );
+
+            profilePickerState.candidates.sort(
+                function (
+                    left,
+                    right
+                ) {
+                    const leftScore =
+                        Number(
+                            left.score
+                            || 0
+                        );
+
+                    const rightScore =
+                        Number(
+                            right.score
+                            || 0
+                        );
+
+                    if (
+                        leftScore
+                        === rightScore
+                    ) {
+                        return 0;
+                    }
+
+                    if (
+                        leftScore
+                        > rightScore
+                    ) {
+                        return -1;
+                    }
+
+                    return 1;
+                }
+            );
+
+            profilePickerState.page =
+                Number(
+                    data.page
+                    || page
+                );
+
+            profilePickerState.hasNext =
+                Boolean(
+                    data.has_next
+                );
+
+            renderProfilePickerGrid();
+
+            profilePickerStatus(
+                String(
+                    profilePickerState.candidates.length
+                )
+                + " photos found. Portrait images are shown first.",
+                ""
+            );
+        } catch (error) {
+            if (
+                profilePickerState
+                && requestToken
+                    === profilePickerRequestToken
+            ) {
+                let message =
+                    String(
+                        error
+                        || "PornPics search failed"
+                    );
+
+                if (
+                    error
+                    && error.message
+                ) {
+                    message =
+                        error.message;
+                }
+
+                profilePickerStatus(
+                    message,
+                    "error"
+                );
+            }
+        } finally {
+            if (
+                profilePickerState
+                && requestToken
+                    === profilePickerRequestToken
+            ) {
+                profilePickerState.loading =
+                    false;
+
+                updateProfilePickerActions();
+            }
+        }
+    }
+
+    async function applyProfileImageSelection() {
+        if (
+            !profilePickerState
+            || !profilePickerState.selectedUrl
+            || profilePickerState.applying
+        ) {
+            return;
+        }
+
+        profilePickerState.applying =
+            true;
+
+        const requestToken =
+            profilePickerRequestToken;
+
+        profilePickerStatus(
+            "Downloading and applying selected image",
+            ""
+        );
+
+        updateProfilePickerActions();
+
+        try {
+            const result =
+                await requestData(
+                    {
+                        mode:
+                            "profile_image_apply",
+                        performer_id:
+                            profilePickerState.performerId,
+                        performer_name:
+                            profilePickerState.performerName,
+                        image_url:
+                            profilePickerState.selectedUrl
+                    },
+                    null,
+                    120000
+                );
+
+            if (
+                !profilePickerState
+                || requestToken
+                    !== profilePickerRequestToken
+            ) {
+                return;
+            }
+
+            refreshPerformerImageInPage(
+                result.image_path
+                || "",
+                result.previous_image_path
+                || ""
+            );
+
+            const performerName =
+                profilePickerState.performerName;
+
+            closeProfileImagePicker();
+
+            profilePickerToast(
+                "Profile image updated for "
+                + performerName
+            );
+        } catch (error) {
+            if (
+                profilePickerState
+                && requestToken
+                    === profilePickerRequestToken
+            ) {
+                let message =
+                    String(
+                        error
+                        || "Could not apply the profile image"
+                    );
+
+                if (
+                    error
+                    && error.message
+                ) {
+                    message =
+                        error.message;
+                }
+
+                profilePickerStatus(
+                    message,
+                    "error"
+                );
+
+                profilePickerState.applying =
+                    false;
+
+                updateProfilePickerActions();
+            }
+        }
+    }
+
+    function openProfileImagePicker(
+        performerId,
+        performerName
+    ) {
+        performerId =
+            String(
+                performerId
+                || ""
+            ).trim();
+
+        performerName =
+            String(
+                performerName
+                || ""
+            ).trim();
+
+        if (
+            !performerId
+            || !performerName
+        ) {
+            profilePickerToast(
+                "Could not determine this performer."
+            );
+
+            return;
+        }
+
+        closeProfileImagePicker();
+
+        profilePickerRequestToken +=
+            1;
+
+        profilePickerState = {
+            performerId:
+                performerId,
+            performerName:
+                performerName,
+            page:
+                0,
+            hasNext:
+                false,
+            loading:
+                false,
+            applying:
+                false,
+            selectedUrl:
+                "",
+            candidates:
+                []
+        };
+
+        const overlay =
+            document.createElement(
+                "div"
+            );
+
+        overlay.id =
+            "ppics-profile-picker";
+
+        overlay.className =
+            "ppics-profile-picker-overlay";
+
+        overlay.innerHTML = `
+            <div
+                class="ppics-profile-picker-card"
+                role="dialog"
+                aria-modal="true"
+                aria-label="PornPics Profile Image Finder"
+            >
+                <div class="ppics-profile-picker-header">
+                    <div class="ppics-profile-picker-brand">
+                        <span class="ppics-profile-picker-logo">
+                            P
+                        </span>
+
+                        <div>
+                            <span class="ppics-profile-picker-eyebrow">
+                                PornPics Importer
+                            </span>
+
+                            <h2>
+                                Profile Image Finder
+                            </h2>
+
+                            <p>
+                                ${escapeHtml(performerName)}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="ppics-profile-picker-close"
+                        aria-label="Close"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div class="ppics-profile-picker-toolbar">
+                    <div>
+                        <strong>
+                            Choose a profile image
+                        </strong>
+
+                        <span>
+                            Portrait images are shown first. Select one photo to use as the performer image.
+                        </span>
+                    </div>
+
+                    <div class="ppics-profile-picker-status">
+                        Searching PornPics
+                    </div>
+                </div>
+
+                <div class="ppics-profile-picker-body">
+                    <div class="ppics-profile-picker-grid">
+                        <div class="ppics-profile-picker-loading">
+                            <span class="spinner-border" role="status"></span>
+
+                            <strong>
+                                Finding photos for ${escapeHtml(performerName)}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ppics-profile-picker-footer">
+                    <div class="ppics-profile-picker-footer-note">
+                        The selected file is stored separately and is not imported as a Stash image or gallery.
+                    </div>
+
+                    <div class="ppics-profile-picker-footer-actions">
+                        <button
+                            type="button"
+                            class="btn btn-secondary ppics-profile-picker-close-button"
+                        >
+                            Close
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn btn-secondary ppics-profile-picker-more"
+                            style="display: none"
+                        >
+                            Load more
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn btn-primary ppics-profile-picker-use"
+                            disabled
+                        >
+                            Use selected image
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(
+            overlay
+        );
+
+        overlay.addEventListener(
+            "mousedown",
+            function (event) {
+                if (
+                    event.target
+                    === overlay
+                ) {
+                    closeProfileImagePicker();
+                }
+            }
+        );
+
+        overlay.querySelector(
+            ".ppics-profile-picker-close"
+        ).addEventListener(
+            "click",
+            closeProfileImagePicker
+        );
+
+        overlay.querySelector(
+            ".ppics-profile-picker-close-button"
+        ).addEventListener(
+            "click",
+            closeProfileImagePicker
+        );
+
+        overlay.querySelector(
+            ".ppics-profile-picker-more"
+        ).addEventListener(
+            "click",
+            function () {
+                loadProfileImageCandidates(
+                    true
+                );
+            }
+        );
+
+        overlay.querySelector(
+            ".ppics-profile-picker-use"
+        ).addEventListener(
+            "click",
+            applyProfileImageSelection
+        );
+
+        document.addEventListener(
+            "keydown",
+            profilePickerKeyHandler,
+            true
+        );
+
+        loadProfileImageCandidates(
+            false
+        );
+    }
+
+    function injectProfileImageSearchButtons() {
+        if (
+            !window.location.pathname.startsWith(
+                "/performers/"
+            )
+        ) {
+            return;
+        }
+
+        const form =
+            document.getElementById(
+                "performer-edit"
+            );
+
+        if (!form) {
+            return;
+        }
+
+        const performerId =
+            performerIdFromPath();
+
+        const performerName =
+            performerNameFromEditForm();
+
+        if (
+            !performerId
+            || !performerName
+        ) {
+            return;
+        }
+
+        form.querySelectorAll(
+            ".details-edit"
+        ).forEach(function (row) {
+            if (
+                row.querySelector(
+                    ".ppics-profile-image-search-button"
+                )
+            ) {
+                return;
+            }
+
+            const nativeButton =
+                nativePerformerImageButton(
+                    row
+                );
+
+            if (!nativeButton) {
+                return;
+            }
+
+            const button =
+                document.createElement(
+                    "button"
+                );
+
+            button.type =
+                "button";
+
+            button.className =
+                "btn btn-secondary mr-2 ppics-profile-image-search-button";
+
+            button.textContent =
+                "Search with PornPics Importer";
+
+            button.addEventListener(
+                "click",
+                function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    openProfileImagePicker(
+                        performerIdFromPath(),
+                        performerNameFromEditForm()
+                    );
+                }
+            );
+
+            nativeButton.insertAdjacentElement(
+                "afterend",
+                button
+            );
+        });
+    }
+
     function inject() {
         enhanceGenderSetting();
+        injectProfileImageSearchButtons();
         registerGlobalPornPicsRoute();
         startGlobalNavObserver();
         injectGlobalNavLink();

@@ -1,13 +1,13 @@
 {
   "enabled": true,
-  "version": "v3.0",
-  "title": "What's new in v3.0",
-  "intro": "Refreshed Homepage",
+  "version": "v3.1",
+  "title": "What's new in v3.1",
+  "intro": "PornPics Importer now includes a performer profile image finder.",
   "items": [
-    "Added a redesigned PornPics home with Now popular, Recommended for you, New on PornPics, Continue browsing and Popular tags sections.",
-    "Added full in-plugin directories for tags, performers and studios with search, Popular and A–Z sorting, and pagination.",
-    "Search results are now more visual and progressively load preview images for tags, performers and studios.",
-    "Recommendations are generated locally from galleries you browse; no external tracking is added."
+    "Added Search with PornPics Importer button next to Stash's performer image control.",
+    "Browse performer photos in a dedicated popup with portrait-oriented images shown first.",
+    "Choose one photo and apply it directly as the Stash performer profile image.",
+    "The selected file is stored separately inside the plugin and is not imported as a Stash image, gallery or metadata item."
   ],
-  "footer": "This update is a bit experimental. If you encounter any issues, message @bprpi on the forum"
+  "footer": " "
 }

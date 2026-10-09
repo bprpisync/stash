@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import os
@@ -19,6 +20,11 @@ STATE_DIR = PLUGIN_DIR / "state" / "imports"
 HISTORY_FILE = PLUGIN_DIR / "state" / "import-history.json"
 RUNTIME_FILE = PLUGIN_DIR / "state" / "runtime.json"
 SESSION_RESET_FILE = PLUGIN_DIR / "state" / "session-reset.json"
+PROFILE_IMAGE_DIR = (
+    PLUGIN_DIR
+    / "assets"
+    / "performer-profile-images"
+)
 
 DEFAULT_SEARCH_LIMIT = 20
 IMPORTER_TAG = "PornPics Importer"
@@ -181,6 +187,72 @@ def write_progress(
         )
 
 
+
+
+def delete_all_profile_images():
+    PROFILE_IMAGE_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    deleted_files = 0
+    deleted_folders = 0
+
+    for path in list(
+        PROFILE_IMAGE_DIR.iterdir()
+    ):
+        if path.name in (
+            ".keep",
+            ".stashignore"
+        ):
+            continue
+
+        try:
+            if path.is_dir():
+                for child in path.rglob(
+                    "*"
+                ):
+                    if child.is_file():
+                        try:
+                            child.unlink()
+                            deleted_files += 1
+                        except OSError:
+                            pass
+
+                for child in sorted(
+                    path.rglob(
+                        "*"
+                    ),
+                    key=lambda item: len(
+                        item.parts
+                    ),
+                    reverse=True
+                ):
+                    if child.is_dir():
+                        try:
+                            child.rmdir()
+                        except OSError:
+                            pass
+
+                try:
+                    path.rmdir()
+                    deleted_folders += 1
+                except OSError:
+                    pass
+
+            elif path.is_file():
+                path.unlink()
+                deleted_files += 1
+
+        except OSError:
+            pass
+
+    return {
+        "deleted_files":
+            deleted_files,
+        "deleted_folders":
+            deleted_folders
+    }
 
 
 def clear_cache_files():
@@ -3693,6 +3765,633 @@ def finalize_import(stash, import_id, request_id=None):
     }
 
 
+def profile_image_orientation(
+    width,
+    height
+):
+    try:
+        width = int(
+            width
+            or 0
+        )
+        height = int(
+            height
+            or 0
+        )
+    except (
+        TypeError,
+        ValueError
+    ):
+        return "unknown"
+
+    if (
+        width <= 0
+        or height <= 0
+    ):
+        return "unknown"
+
+    ratio = (
+        float(
+            height
+        )
+        / float(
+            width
+        )
+    )
+
+    if ratio >= 1.12:
+        return "portrait"
+
+    if ratio <= 0.88:
+        return "landscape"
+
+    return "square"
+
+
+def profile_image_score(
+    width,
+    height
+):
+    try:
+        width = int(
+            width
+            or 0
+        )
+        height = int(
+            height
+            or 0
+        )
+    except (
+        TypeError,
+        ValueError
+    ):
+        width = 0
+        height = 0
+
+    if (
+        width <= 0
+        or height <= 0
+    ):
+        return 100
+
+    ratio = (
+        float(
+            height
+        )
+        / float(
+            width
+        )
+    )
+
+    score = 50
+
+    if ratio >= 1.35:
+        score = 400
+    elif ratio >= 1.12:
+        score = 320
+    elif ratio >= 0.92:
+        score = 180
+    else:
+        score = 60
+
+    longest_side = max(
+        width,
+        height
+    )
+
+    score += min(
+        40,
+        int(
+            longest_side
+            / 100
+        )
+    )
+
+    return score
+
+
+def profile_image_candidates(
+    pp,
+    performer_name,
+    page=1,
+    request_id=None
+):
+    performer_name = str(
+        performer_name
+        or ""
+    ).strip()
+
+    if not performer_name:
+        raise ValueError(
+            "No performer name was provided."
+        )
+
+    try:
+        page = int(
+            page
+            or 1
+        )
+    except (
+        TypeError,
+        ValueError
+    ):
+        page = 1
+
+    if page < 1:
+        page = 1
+
+    write_progress(
+        request_id,
+        "profile-search",
+        "Finding PornPics galleries",
+        detail=(
+            "Searching images for "
+            + performer_name
+        )
+    )
+
+    scene_page = pp.get_scenes_page(
+        name=performer_name,
+        page=page,
+        per_page=4,
+        seed=(
+            "profile-image:"
+            + performer_name.casefold()
+        )
+    )
+
+    scenes = (
+        scene_page.get(
+            "scenes"
+        )
+        or []
+    )
+
+    candidates = []
+    seen_urls = set()
+
+    for scene_index, scene in enumerate(
+        scenes,
+        start=1
+    ):
+        write_progress(
+            request_id,
+            "profile-search",
+            "Loading portrait candidates",
+            current=scene_index,
+            total=len(
+                scenes
+            ),
+            detail=str(
+                scene.get(
+                    "title"
+                )
+                or performer_name
+            )
+        )
+
+        details = pp.get_images(
+            str(
+                scene.get(
+                    "url"
+                )
+                or ""
+            )
+        )
+
+        if (
+            not details
+            or details.get(
+                "age_verification_required"
+            )
+        ):
+            continue
+
+        gallery_title = str(
+            details.get(
+                "title"
+            )
+            or scene.get(
+                "title"
+            )
+            or "PornPics gallery"
+        ).strip()
+
+        gallery_url = str(
+            scene.get(
+                "url"
+            )
+            or ""
+        ).strip()
+
+        for image in (
+            details.get(
+                "images"
+            )
+            or []
+        ):
+            image_url = str(
+                image.get(
+                    "url"
+                )
+                or ""
+            ).strip()
+
+            if (
+                not image_url
+                or image_url
+                in seen_urls
+            ):
+                continue
+
+            seen_urls.add(
+                image_url
+            )
+
+            width = image.get(
+                "width"
+            )
+            height = image.get(
+                "height"
+            )
+
+            score = profile_image_score(
+                width,
+                height
+            )
+
+            candidates.append(
+                {
+                    "url":
+                        image_url,
+                    "thumbnail":
+                        str(
+                            image.get(
+                                "thumbnail"
+                            )
+                            or image_url
+                        ),
+                    "width":
+                        width,
+                    "height":
+                        height,
+                    "orientation":
+                        profile_image_orientation(
+                            width,
+                            height
+                        ),
+                    "score":
+                        score,
+                    "gallery_title":
+                        gallery_title,
+                    "gallery_url":
+                        gallery_url,
+                    "gallery_index":
+                        scene_index,
+                    "image_index":
+                        image.get(
+                            "index"
+                        ),
+                }
+            )
+
+    candidates.sort(
+        key=lambda item: (
+            -int(
+                item.get(
+                    "score"
+                )
+                or 0
+            ),
+            int(
+                item.get(
+                    "gallery_index"
+                )
+                or 0
+            ),
+            int(
+                item.get(
+                    "image_index"
+                )
+                or 0
+            )
+        )
+    )
+
+    return {
+        "status":
+            "ok",
+        "mode":
+            "profile_image_search",
+        "performer_name":
+            performer_name,
+        "page":
+            page,
+        "has_next":
+            bool(
+                scene_page.get(
+                    "has_next"
+                )
+            ),
+        "candidate_count":
+            len(
+                candidates
+            ),
+        "candidates":
+            candidates
+    }
+
+
+def safe_profile_image_url(
+    image_url
+):
+    image_url = str(
+        image_url
+        or ""
+    ).strip()
+
+    parsed = urlparse(
+        image_url
+    )
+
+    host = str(
+        parsed.hostname
+        or ""
+    ).casefold()
+
+    if parsed.scheme not in (
+        "http",
+        "https"
+    ):
+        return False
+
+    if (
+        host == "pornpics.com"
+        or host.endswith(
+            ".pornpics.com"
+        )
+    ):
+        return True
+
+    return False
+
+
+def profile_image_extension(
+    image_url
+):
+    suffix = Path(
+        urlparse(
+            str(
+                image_url
+                or ""
+            )
+        ).path
+    ).suffix.casefold()
+
+    if suffix == ".jpeg":
+        return ".jpg"
+
+    if suffix in (
+        ".jpg",
+        ".png",
+        ".webp",
+        ".gif"
+    ):
+        return suffix
+
+    return ".jpg"
+
+
+def profile_image_mime(
+    payload,
+    suffix
+):
+    if payload.startswith(
+        b"\xff\xd8\xff"
+    ):
+        return "image/jpeg"
+
+    if payload.startswith(
+        b"\x89PNG\r\n\x1a\n"
+    ):
+        return "image/png"
+
+    if payload.startswith(
+        b"GIF87a"
+    ) or payload.startswith(
+        b"GIF89a"
+    ):
+        return "image/gif"
+
+    if (
+        len(
+            payload
+        )
+        >= 12
+        and payload[
+            0:
+            4
+        ] == b"RIFF"
+        and payload[
+            8:
+            12
+        ] == b"WEBP"
+    ):
+        return "image/webp"
+
+    suffix = str(
+        suffix
+        or ""
+    ).casefold()
+
+    fallback = {
+        ".jpg":
+            "image/jpeg",
+        ".jpeg":
+            "image/jpeg",
+        ".png":
+            "image/png",
+        ".webp":
+            "image/webp",
+        ".gif":
+            "image/gif"
+    }
+
+    return fallback.get(
+        suffix,
+        "image/jpeg"
+    )
+
+
+def safe_profile_folder_name(
+    performer_id
+):
+    value = re.sub(
+        r"[^A-Za-z0-9_.-]+",
+        "_",
+        str(
+            performer_id
+            or ""
+        ).strip()
+    ).strip(
+        "._"
+    )
+
+    if not value:
+        raise ValueError(
+            "Invalid performer ID."
+        )
+
+    return value
+
+
+def apply_profile_image(
+    stash,
+    performer_id,
+    performer_name,
+    image_url
+):
+    performer_id = str(
+        performer_id
+        or ""
+    ).strip()
+
+    performer_name = str(
+        performer_name
+        or ""
+    ).strip()
+
+    image_url = str(
+        image_url
+        or ""
+    ).strip()
+
+    if not performer_id:
+        raise ValueError(
+            "No performer ID was provided."
+        )
+
+    if not image_url:
+        raise ValueError(
+            "No image was selected."
+        )
+
+    if not safe_profile_image_url(
+        image_url
+    ):
+        raise ValueError(
+            "The selected image is not hosted by PornPics."
+        )
+
+    existing = stash.find_performer_by_id(
+        performer_id
+    )
+
+    if not existing:
+        raise RuntimeError(
+            "The Stash performer could not be found."
+        )
+
+    target_dir = (
+        PROFILE_IMAGE_DIR
+        / safe_profile_folder_name(
+            performer_id
+        )
+    )
+
+    target_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    for old_path in target_dir.glob(
+        "profile.*"
+    ):
+        try:
+            old_path.unlink()
+        except OSError:
+            pass
+
+    suffix = profile_image_extension(
+        image_url
+    )
+
+    destination = (
+        target_dir
+        / (
+            "profile"
+            + suffix
+        )
+    )
+
+    downloader = Downloader()
+
+    downloader.download(
+        image_url,
+        destination
+    )
+
+    payload = destination.read_bytes()
+
+    if not payload:
+        raise RuntimeError(
+            "The downloaded profile image is empty."
+        )
+
+    mime = profile_image_mime(
+        payload,
+        suffix
+    )
+
+    image_data = (
+        "data:"
+        + mime
+        + ";base64,"
+        + base64.b64encode(
+            payload
+        ).decode(
+            "ascii"
+        )
+    )
+
+    updated = stash.update_performer_image(
+        performer_id,
+        image_data
+    )
+
+    return {
+        "status":
+            "ok",
+        "mode":
+            "profile_image_apply",
+        "performer_id":
+            performer_id,
+        "performer_name":
+            str(
+                updated.get(
+                    "name"
+                )
+                or performer_name
+                or existing.get(
+                    "name"
+                )
+                or ""
+            ),
+        "image_path":
+            updated.get(
+                "image_path"
+            ),
+        "previous_image_path":
+            existing.get(
+                "image_path"
+            ),
+        "stored_path":
+            str(
+                destination
+            )
+    }
+
+
 def load_whats_new_config():
     if not WHATS_NEW_FILE.exists():
         return {
@@ -3792,6 +4491,26 @@ def main():
 
         return
 
+    if mode == "delete_profile_images":
+        result = delete_all_profile_images()
+
+        print(json.dumps({
+            "output": {
+                "message": (
+                    "Deleted "
+                    + str(
+                        result.get(
+                            "deleted_files"
+                        )
+                        or 0
+                    )
+                    + " downloaded performer profile image file(s)."
+                )
+            }
+        }))
+
+        return
+
     request_id = str(
         args.get("request_id") or ""
     ).strip()
@@ -3861,7 +4580,58 @@ def main():
     stash = Stash(server_connection)
 
     try:
-        if mode == "discovery_home":
+        if mode == "profile_image_search":
+            performer_name = str(
+                args.get(
+                    "performer_name"
+                )
+                or ""
+            ).strip()
+
+            try:
+                profile_page = int(
+                    args.get(
+                        "page"
+                    )
+                    or 1
+                )
+            except (
+                TypeError,
+                ValueError
+            ):
+                profile_page = 1
+
+            payload = profile_image_candidates(
+                pp,
+                performer_name,
+                page=profile_page,
+                request_id=request_id
+            )
+
+        elif mode == "profile_image_apply":
+            payload = apply_profile_image(
+                stash,
+                performer_id=str(
+                    args.get(
+                        "performer_id"
+                    )
+                    or ""
+                ).strip(),
+                performer_name=str(
+                    args.get(
+                        "performer_name"
+                    )
+                    or ""
+                ).strip(),
+                image_url=str(
+                    args.get(
+                        "image_url"
+                    )
+                    or ""
+                ).strip()
+            )
+
+        elif mode == "discovery_home":
             payload = discovery_home(
                 pp,
                 request_id=request_id
