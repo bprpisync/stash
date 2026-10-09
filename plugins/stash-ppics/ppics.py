@@ -1,4 +1,3 @@
-import base64
 import hashlib
 import json
 import os
@@ -4199,6 +4198,25 @@ def profile_image_mime(
     ):
         return "image/webp"
 
+    if (
+        len(
+            payload
+        )
+        >= 12
+        and payload[
+            4:
+            8
+        ] == b"ftyp"
+        and payload[
+            8:
+            12
+        ] in (
+            b"avif",
+            b"avis"
+        )
+    ):
+        return "image/avif"
+
     suffix = str(
         suffix
         or ""
@@ -4246,7 +4264,6 @@ def safe_profile_folder_name(
 
 
 def apply_profile_image(
-    stash,
     performer_id,
     performer_name,
     image_url
@@ -4283,15 +4300,6 @@ def apply_profile_image(
             "The selected image is not hosted by PornPics."
         )
 
-    existing = stash.find_performer_by_id(
-        performer_id
-    )
-
-    if not existing:
-        raise RuntimeError(
-            "The Stash performer could not be found."
-        )
-
     target_dir = (
         PROFILE_IMAGE_DIR
         / safe_profile_folder_name(
@@ -4326,6 +4334,16 @@ def apply_profile_image(
 
     downloader = Downloader()
 
+    # The regular importer accepts modern image formats, but Stash's native
+    # performer image input is most reliable with standard browser formats.
+    # Prefer JPEG/PNG/WebP/GIF here and avoid negotiating AVIF first.
+    downloader.headers[
+        "Accept"
+    ] = (
+        "image/jpeg,image/png,image/webp,image/gif,"
+        "*/*;q=0.5"
+    )
+
     downloader.download(
         image_url,
         destination
@@ -4343,20 +4361,54 @@ def apply_profile_image(
         suffix
     )
 
-    image_data = (
-        "data:"
-        + mime
-        + ";base64,"
-        + base64.b64encode(
-            payload
-        ).decode(
-            "ascii"
-        )
+    actual_suffix = {
+        "image/jpeg":
+            ".jpg",
+        "image/png":
+            ".png",
+        "image/webp":
+            ".webp",
+        "image/gif":
+            ".gif",
+        "image/avif":
+            ".avif"
+    }.get(
+        mime,
+        suffix
     )
 
-    updated = stash.update_performer_image(
-        performer_id,
-        image_data
+    if (
+        actual_suffix
+        and actual_suffix
+        != destination.suffix.casefold()
+    ):
+        corrected = (
+            target_dir
+            / (
+                "profile"
+                + actual_suffix
+            )
+        )
+
+        if corrected.exists():
+            try:
+                corrected.unlink()
+            except OSError:
+                pass
+
+        destination.replace(
+            corrected
+        )
+
+        destination = corrected
+
+    relative_asset_path = (
+        "performer-profile-images/"
+        + safe_profile_folder_name(
+            performer_id
+        )
+        + "/"
+        + destination.name
     )
 
     return {
@@ -4367,27 +4419,19 @@ def apply_profile_image(
         "performer_id":
             performer_id,
         "performer_name":
-            str(
-                updated.get(
-                    "name"
-                )
-                or performer_name
-                or existing.get(
-                    "name"
-                )
-                or ""
-            ),
-        "image_path":
-            updated.get(
-                "image_path"
-            ),
-        "previous_image_path":
-            existing.get(
-                "image_path"
-            ),
+            performer_name,
         "stored_path":
             str(
                 destination
+            ),
+        "file_name":
+            destination.name,
+        "mime":
+            mime,
+        "asset_url":
+            (
+                "/plugin/stash-ppics/assets/"
+                + relative_asset_path
             )
     }
 
@@ -4610,7 +4654,6 @@ def main():
 
         elif mode == "profile_image_apply":
             payload = apply_profile_image(
-                stash,
                 performer_id=str(
                     args.get(
                         "performer_id"

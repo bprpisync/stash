@@ -14310,82 +14310,211 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
         );
     }
 
-    function refreshPerformerImageInPage(
-        imagePath,
-        previousImagePath
+    function profileImageSetButton() {
+        const form =
+            document.getElementById(
+                "performer-edit"
+            );
+
+        if (!form) {
+            return null;
+        }
+
+        const rows =
+            Array.from(
+                document.querySelectorAll(
+                    ".details-edit"
+                )
+            );
+
+        let result = null;
+
+        rows.forEach(function (row) {
+            if (result) {
+                return;
+            }
+
+            const button =
+                nativePerformerImageButton(
+                    row
+                );
+
+            if (button) {
+                result =
+                    button;
+            }
+        });
+
+        return result;
+    }
+
+    function waitForNativeProfileFileInput(
+        timeoutMs
     ) {
-        imagePath =
-            String(
-                imagePath
-                || ""
-            ).trim();
+        return new Promise(
+            function (
+                resolve,
+                reject
+            ) {
+                const started =
+                    Date.now();
 
-        previousImagePath =
-            String(
-                previousImagePath
-                || ""
-            ).trim();
+                function check() {
+                    const input =
+                        document.querySelector(
+                            '#set-image-popover input[type="file"]'
+                        );
 
-        if (!imagePath) {
-            return;
-        }
+                    if (input) {
+                        resolve(
+                            input
+                        );
+                        return;
+                    }
 
-        const queryMarker =
-            String.fromCharCode(
-                63
-            );
+                    if (
+                        Date.now()
+                        - started
+                        >= timeoutMs
+                    ) {
+                        reject(
+                            new Error(
+                                "Stash image input did not open."
+                            )
+                        );
+                        return;
+                    }
 
-        const freshPath =
-            imagePath
-            + queryMarker
-            + "ppicsProfile="
-            + String(
-                Date.now()
-            );
-
-        let changed = 0;
-
-        if (previousImagePath) {
-            const oldBase =
-                previousImagePath.split(
-                    queryMarker
-                )[0];
-
-            document.querySelectorAll(
-                "img"
-            ).forEach(function (image) {
-                const source =
-                    String(
-                        image.getAttribute(
-                            "src"
-                        )
-                        || image.src
-                        || ""
+                    window.setTimeout(
+                        check,
+                        30
                     );
-
-                if (
-                    oldBase
-                    && source.indexOf(
-                        oldBase
-                    ) >= 0
-                ) {
-                    image.src =
-                        freshPath;
-
-                    changed +=
-                        1;
                 }
-            });
+
+                check();
+            }
+        );
+    }
+
+    async function putProfileImageIntoNativeEditor(
+        result
+    ) {
+        if (
+            !result
+            || !result.asset_url
+        ) {
+            throw new Error(
+                "PornPics Importer did not return a profile image file."
+            );
         }
 
-        if (!changed) {
-            document.querySelectorAll(
-                ".performer-image img, .detail-header-image img, #performer-edit img"
-            ).forEach(function (image) {
-                image.src =
-                    freshPath;
-            });
+        const response =
+            await fetch(
+                result.asset_url,
+                {
+                    cache:
+                        "no-store",
+                    credentials:
+                        "same-origin"
+                }
+            );
+
+        if (!response.ok) {
+            throw new Error(
+                "The downloaded profile image could not be read from plugin storage."
+            );
         }
+
+        const blob =
+            await response.blob();
+
+        if (
+            !blob
+            || !blob.size
+        ) {
+            throw new Error(
+                "The downloaded profile image is empty."
+            );
+        }
+
+        const nativeButton =
+            profileImageSetButton();
+
+        if (!nativeButton) {
+            throw new Error(
+                "Could not find Stash's native Set Image button."
+            );
+        }
+
+        nativeButton.click();
+
+        const input =
+            await waitForNativeProfileFileInput(
+                2500
+            );
+
+        const fileName =
+            String(
+                result.file_name
+                || "profile.jpg"
+            );
+
+        let fileType =
+            String(
+                result.mime
+                || blob.type
+                || "image/jpeg"
+            );
+
+        if (!fileType) {
+            fileType =
+                "image/jpeg";
+        }
+
+        const file =
+            new File(
+                [
+                    blob
+                ],
+                fileName,
+                {
+                    type:
+                        fileType
+                }
+            );
+
+        const transfer =
+            new DataTransfer();
+
+        transfer.items.add(
+            file
+        );
+
+        input.files =
+            transfer.files;
+
+        input.dispatchEvent(
+            new Event(
+                "change",
+                {
+                    bubbles:
+                        true
+                }
+            )
+        );
+
+        window.setTimeout(
+            function () {
+                if (
+                    document.getElementById(
+                        "set-image-popover"
+                    )
+                ) {
+                    nativeButton.click();
+                }
+            },
+            80
+        );
     }
 
     async function loadProfileImageCandidates(
@@ -14599,7 +14728,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             profilePickerRequestToken;
 
         profilePickerStatus(
-            "Downloading and applying selected image",
+            "Preparing selected image for Stash",
             ""
         );
 
@@ -14630,11 +14759,13 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 return;
             }
 
-            refreshPerformerImageInPage(
-                result.image_path
-                || "",
-                result.previous_image_path
-                || ""
+            profilePickerStatus(
+                "Loading image into Stash editor",
+                ""
+            );
+
+            await putProfileImageIntoNativeEditor(
+                result
             );
 
             const performerName =
@@ -14643,8 +14774,9 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
             closeProfileImagePicker();
 
             profilePickerToast(
-                "Profile image updated for "
+                "Image ready for "
                 + performerName
+                + ". Click Save in Stash to keep it."
             );
         } catch (error) {
             if (
@@ -14655,7 +14787,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
                 let message =
                     String(
                         error
-                        || "Could not apply the profile image"
+                        || "Could not prepare the profile image"
                     );
 
                 if (
@@ -14808,7 +14940,7 @@ console.log('PornPics Importer ' + pp_VERSION + ' running.');
 
                 <div class="ppics-profile-picker-footer">
                     <div class="ppics-profile-picker-footer-note">
-                        The selected file is stored separately and is not imported as a Stash image or gallery.
+                        The selected file is stored separately and loaded into Stash's normal performer image editor. Click Save in Stash afterwards.
                     </div>
 
                     <div class="ppics-profile-picker-footer-actions">

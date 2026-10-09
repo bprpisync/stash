@@ -558,39 +558,6 @@ class Stash:
 
         return data["performerUpdate"]
 
-    def update_performer_image(
-        self,
-        performer_id,
-        image_data
-    ):
-        query = """
-        mutation PPicsPerformerProfileImageUpdate(
-            $input: PerformerUpdateInput!
-        ) {
-            performerUpdate(input: $input) {
-                id
-                name
-                image_path
-            }
-        }
-        """
-
-        data = self.query(
-            query,
-            {
-                "input": {
-                    "id":
-                        performer_id,
-                    "image":
-                        image_data
-                }
-            }
-        )
-
-        return data[
-            "performerUpdate"
-        ]
-
     def add_performer_alias(self, performer_id, alias):
         performer = self.find_performer_by_id(
             performer_id
